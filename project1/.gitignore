@@ -1,0 +1,23 @@
+.vs/
+   *.obj
+   *.exe
+   *.pdb
+   *.ilk
+   *.idb
+   *.tlog
+   *.log
+   *.lastbuildstate
+   *.ipch
+   Debug/
+   Release/
+   x64/
+   x86/
+   Win32/
+   *.aps
+   *.opendb
+   *.db
+   *.suo
+   *.user
+   *.sdf
+   *.opensdf
+   ipch/
