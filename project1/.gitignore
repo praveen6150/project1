@@ -8,7 +8,6 @@
    *.log
    *.lastbuildstate
    *.ipch
-   Debug/
    Release/
    x64/
    x86/
