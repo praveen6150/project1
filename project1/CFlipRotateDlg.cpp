@@ -31,7 +31,6 @@ BEGIN_MESSAGE_MAP(CFlipRotateDlg, CDialogEx)
     ON_NOTIFY_EX(TTN_NEEDTEXT, 0, &CFlipRotateDlg::OnToolTipNotify)
 END_MESSAGE_MAP()
 
-
 BOOL CFlipRotateDlg::OnInitDialog()
 {
     CDialogEx::OnInitDialog();
@@ -63,7 +62,6 @@ BOOL CFlipRotateDlg::OnToolTipNotify(UINT id, NMHDR* pNMHDR, LRESULT* pResult)
 
     return TRUE;
 }
-
 
 void CFlipRotateDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 {
@@ -117,7 +115,6 @@ void CFlipRotateDlg::OnOK()
 
     CDialogEx::OnOK();
 }
-
 
 void CFlipRotateDlg::SetTargetView(Cproject1View* pView)
 {
