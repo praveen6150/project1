@@ -121,7 +121,7 @@ void CFlipRotateDlg::SetTargetView(Cproject1View* pView)
     m_pTargetView = pView;
 }
 
-void CFlipRotateDlg::OnCancel()
+void CFlipRotateDlg::OnCancel() 
 {
     if (m_pTargetView)
         m_pTargetView->SetPreviewRotationAngle(0, FALSE);
