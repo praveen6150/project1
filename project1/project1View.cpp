@@ -117,98 +117,70 @@ BOOL Cproject1View::PreCreateWindow(CREATESTRUCT& cs)
 	return CScrollView::PreCreateWindow(cs);
 }
 
-// Cproject1View drawing
 void Cproject1View::OnDraw(CDC* pDC)
 {
 	Cproject1Doc* pDoc = GetDocument();
 	ASSERT_VALID(pDoc);
-	if (!pDoc) return;
+	if (!pDoc || pDoc->m_image.IsNull())
+		return;
 
-	if (!pDoc->m_image.IsNull())
+	CRect rectClient;
+	GetClientRect(&rectClient);
+
+	// 1. Double Buffering Setup
+	CDC memDC;
+	memDC.CreateCompatibleDC(pDC);
+
+	CBitmap memBitmap;
+	memBitmap.CreateCompatibleBitmap(pDC, rectClient.Width(), rectClient.Height());
+	CBitmap* pOldBitmap = memDC.SelectObject(&memBitmap);
+
+	// 2. Clear the memory buffer background
+	CBrush bgBrush(GetSysColor(COLOR_WINDOW));
+	memDC.FillRect(&rectClient, &bgBrush);
+
+	// 3. Check for the EXACT live preview flag managed by the slider dialog
+	if (m_bPreviewRotationActive)
 	{
-		int w = pDoc->m_image.GetWidth();
-		int h = pDoc->m_image.GetHeight();
+		// Draw the preview directly onto our off-screen memory context buffer
+		DrawArbitraryRotationPreview(&memDC, pDoc->m_image, m_previewRotationAngle);
+	}
+	else if (m_bFitToWindow)
+	{
+		int imgWidth = pDoc->m_image.GetWidth();
+		int imgHeight = pDoc->m_image.GetHeight();
 
-		CRect rectClient;
-		GetClientRect(&rectClient);
-		
-		if (m_bPreviewRotationActive && !pDoc->m_imageOriginal.IsNull())
+		double destAspect = (double)rectClient.Width() / rectClient.Height();
+		double srcAspect = (double)imgWidth / imgHeight;
+		int drawWidth = rectClient.Width();
+		int drawHeight = rectClient.Height();
+		int startX = 0;
+		int startY = 0;
+
+		if (destAspect > srcAspect)
 		{
-			DrawArbitraryRotationPreview(pDC, pDoc->m_imageOriginal, m_previewRotationAngle);
-			return;   // skip the normal drawing path while previewing
-		}
-
-		if (m_bFitToWindow)
-		{
-			// ✅ Use StretchBlt with HALFTONE instead of CImage::Draw()
-			// CImage::Draw() mishandles bottom-up DIBs (BMP/JPEG) when stretching
-			HDC hdcSrc = pDoc->m_image.GetDC();
-
-			// --- Aspect-ratio-preserving fit (letterbox/pillarbox instead of distorting) ---
-			double srcAspect = (double)w / h;
-			double clientAspect = (rectClient.Height() != 0)
-				? (double)rectClient.Width() / rectClient.Height()
-				: srcAspect;
-
-			int destW, destH, destX, destY;
-			if (srcAspect > clientAspect)
-			{
-				// Image relatively wider than client — fit to width, letterbox top/bottom
-				destW = rectClient.Width();
-				destH = (int)(destW / srcAspect);
-				destX = 0;
-				destY = (rectClient.Height() - destH) / 2;
-			}
-			else
-			{
-				// Image relatively taller than client — fit to height, pillarbox left/right
-				destH = rectClient.Height();
-				destW = (int)(destH * srcAspect);
-				destY = 0;
-				destX = (rectClient.Width() - destW) / 2;
-			}
-
-			// Fill background first so letterbox/pillarbox bars aren't leftover garbage
-			CBrush bgBrush(GetSysColor(COLOR_WINDOW));
-			pDC->FillRect(&rectClient, &bgBrush);
-
-			::SetStretchBltMode(pDC->GetSafeHdc(), HALFTONE);
-			::SetBrushOrgEx(pDC->GetSafeHdc(), 0, 0, NULL);
-
-			::StretchBlt(
-				pDC->GetSafeHdc(),
-				destX, destY, destW, destH,   // aspect-correct destination
-				hdcSrc,
-				0, 0, w, h,                    // full source image
-				SRCCOPY
-			);
-
-			pDoc->m_image.ReleaseDC();
+			drawWidth = (int)(rectClient.Height() * srcAspect);
+			startX = (rectClient.Width() - drawWidth) / 2;
 		}
 		else
 		{
-			// Normal 1:1 Scroll Mode (unchanged)
-			CSize sizeTotal(w, h);
-			SetScrollSizes(MM_TEXT, sizeTotal);
-
-			if (rectClient.right > w || rectClient.bottom > h)
-			{
-				CBrush bgBrush(GetSysColor(COLOR_WINDOW));
-				if (rectClient.right > w)
-				{
-					CRect rectRight(w, 0, rectClient.right, rectClient.bottom);
-					pDC->FillRect(&rectRight, &bgBrush);
-				}
-				if (rectClient.bottom > h)
-				{
-					CRect rectBottom(0, h, w, rectClient.bottom);
-					pDC->FillRect(&rectBottom, &bgBrush);
-				}
-			}
-
-			pDoc->m_image.Draw(pDC->GetSafeHdc(), 0, 0, w, h);
+			drawHeight = (int)(rectClient.Width() / srcAspect);
+			startY = (rectClient.Height() - drawHeight) / 2;
 		}
+
+		memDC.SetStretchBltMode(COLORONCOLOR);
+		pDoc->m_image.StretchBlt(memDC.GetSafeHdc(), startX, startY, drawWidth, drawHeight, 0, 0, imgWidth, imgHeight, SRCCOPY);
 	}
+	else
+	{
+		pDoc->m_image.BitBlt(memDC.GetSafeHdc(), 0, 0, SRCCOPY);
+	}
+
+	// 4. Single hardware copy to physical display instantly (Zero Flicker)
+	pDC->BitBlt(0, 0, rectClient.Width(), rectClient.Height(), &memDC, 0, 0, SRCCOPY);
+
+	// Cleanup
+	memDC.SelectObject(pOldBitmap);
 }
 
 
@@ -3988,7 +3960,6 @@ void Cproject1View::OnSpatialdomainfilteringDomainfilteringmorphologicalgradient
 	UpdateWindow();
 }
 
-
 void Cproject1View::OnTransformFlip()
 {
 	Cproject1Doc* pDoc = GetDocument();
@@ -4008,7 +3979,6 @@ void Cproject1View::OnTransformFlip()
 	{
 	case OP_FLIP_H:
 	{
-		// Mirror left-right: read from source, write reversed row to destination
 		for (int y = 0; y < height; y++)
 		{
 			BYTE* pSrcRow = pSrcBits + (y * pitch);
@@ -4024,7 +3994,6 @@ void Cproject1View::OnTransformFlip()
 	}
 	case OP_FLIP_V:
 	{
-		// Mirror top-bottom: copy whole rows in reverse order
 		for (int y = 0; y < height; y++)
 		{
 			BYTE* pSrcRow = pSrcBits + (y * pitch);
@@ -4035,8 +4004,6 @@ void Cproject1View::OnTransformFlip()
 	}
 	case OP_ROTATE_90:
 	{
-		// 90 deg clockwise: dest is width/height swapped
-		// NOTE: pDoc->m_image must already be sized (height x width) before this runs
 		int dstPitch = pDoc->m_image.GetPitch();
 		for (int y = 0; y < height; y++)
 		{
@@ -4054,7 +4021,6 @@ void Cproject1View::OnTransformFlip()
 	}
 	case OP_ROTATE_180:
 	{
-		// 180: reverse both x and y
 		for (int y = 0; y < height; y++)
 		{
 			BYTE* pSrcRow = pSrcBits + (y * pitch);
@@ -4070,7 +4036,6 @@ void Cproject1View::OnTransformFlip()
 	}
 	case OP_ROTATE_270:
 	{
-		// 270 deg clockwise (= 90 CCW): dest is width/height swapped
 		int dstPitch = pDoc->m_image.GetPitch();
 		for (int y = 0; y < height; y++)
 		{
@@ -4087,11 +4052,11 @@ void Cproject1View::OnTransformFlip()
 		break;
 	}
 	default:
-		return; // OP_ROTATE_ARBITRARY not handled yet
+		return;
 	}
 
+	// Double buffering handles drawing smoothly inside OnDraw
 	Invalidate(FALSE);
-	UpdateWindow();
 }
 
 void Cproject1View::OnImageFlipRotate()
@@ -4100,7 +4065,7 @@ void Cproject1View::OnImageFlipRotate()
 	if (!pDoc || pDoc->m_imageOriginal.IsNull() || pDoc->m_image.IsNull()) return;
 
 	CFlipRotateDlg dlg;
-	dlg.SetTargetView(this);   // <-- so the dialog can drive live preview on the main canvas
+	dlg.SetTargetView(this);
 
 	if (dlg.DoModal() != IDOK) return;
 
@@ -4120,9 +4085,7 @@ void Cproject1View::OnImageFlipRotate()
 	ResizeParentToFit();
 
 	Invalidate(FALSE);
-	UpdateWindow();
 }
-
 
 void Cproject1View::FlipHorizontal()
 {
@@ -4184,7 +4147,6 @@ void Cproject1View::Rotate90()
 	RotateImage90(pDoc->m_image);
 	RotateImage90(pDoc->m_imageOriginal);
 }
-
 
 void Cproject1View::Rotate270()
 {
@@ -4253,7 +4215,6 @@ void Cproject1View::RotateImage270(CImage& img)
 	img.Attach(dst.Detach());
 }
 
-
 void Cproject1View::RotateArbitrary(double angleDegrees)
 {
 	Cproject1Doc* pDoc = GetDocument();
@@ -4274,20 +4235,19 @@ void Cproject1View::RotateImageArbitrary(CImage& img, double angleDegrees)
 	double cosA = fabs(cos(angleRad));
 	double sinA = fabs(sin(angleRad));
 
-	// Bounding box that fully contains the rotated image (canvas grows to fit, like your 90/270 rotate)
 	int dstW = (int)ceil(srcW * cosA + srcH * sinA);
 	int dstH = (int)ceil(srcW * sinA + srcH * cosA);
 
-	HBITMAP hSrcBmp = (HBITMAP)img;   // non-owning wrap
+	HBITMAP hSrcBmp = (HBITMAP)img;
 	Gdiplus::Bitmap* pSrcBmp = Gdiplus::Bitmap::FromHBITMAP(hSrcBmp, NULL);
 	if (!pSrcBmp) return;
 
 	Gdiplus::Bitmap dstBmp(dstW, dstH, PixelFormat32bppARGB);
 	Gdiplus::Graphics graphics(&dstBmp);
 	graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
-	graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic); // best quality for final commit
+	graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
 
-	graphics.Clear(Gdiplus::Color(255, 255, 255, 255)); // white background fill for exposed corners
+	graphics.Clear(Gdiplus::Color(255, 255, 255, 255));
 
 	graphics.TranslateTransform((Gdiplus::REAL)(dstW / 2.0), (Gdiplus::REAL)(dstH / 2.0));
 	graphics.RotateTransform((Gdiplus::REAL)angleDegrees);
@@ -4306,17 +4266,21 @@ void Cproject1View::SetPreviewRotationAngle(double angle, BOOL bActive)
 {
 	m_previewRotationAngle = angle;
 	m_bPreviewRotationActive = bActive;
+
+	// Triggers OnDraw to seamlessly compile the new rotation position off-screen
 	Invalidate(FALSE);
-	UpdateWindow();   // force immediate redraw for real-time feel while dragging
+	UpdateWindow();
 }
 
-void Cproject1View::DrawArbitraryRotationPreview(CDC* pDC, CImage& srcImg, double angleDegrees)
+
+void Cproject1View::DrawArbitraryRotationPreview(CDC* pTargetDC, CImage& srcImg, double angleDegrees)
 {
 	CRect rectClient;
 	GetClientRect(&rectClient);
 
-	CBrush bgBrush(GetSysColor(COLOR_WINDOW));
-	pDC->FillRect(&rectClient, &bgBrush);
+	// ❌ REMOVED: pTargetDC->FillRect(&rectClient, &bgBrush);
+	// We no longer clear the screen here because OnDraw already handled clearing 
+	// the background inside the off-screen memory buffer.
 
 	int srcW = srcImg.GetWidth();
 	int srcH = srcImg.GetHeight();
@@ -4325,9 +4289,10 @@ void Cproject1View::DrawArbitraryRotationPreview(CDC* pDC, CImage& srcImg, doubl
 	Gdiplus::Bitmap* pBmp = Gdiplus::Bitmap::FromHBITMAP(hSrcBmp, NULL);
 	if (!pBmp) return;
 
-	Gdiplus::Graphics graphics(pDC->GetSafeHdc());
+	// ✅ FIX: Bind the GDI+ graphics engine to the target context handle passed from OnDraw
+	Gdiplus::Graphics graphics(pTargetDC->GetSafeHdc());
 	graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
-	graphics.SetInterpolationMode(Gdiplus::InterpolationModeBilinear); // fast, for live drag
+	graphics.SetInterpolationMode(Gdiplus::InterpolationModeBilinear);
 
 	double angleRad = angleDegrees * 3.14159265358979 / 180.0;
 	double cosA = fabs(cos(angleRad));
@@ -4336,7 +4301,7 @@ void Cproject1View::DrawArbitraryRotationPreview(CDC* pDC, CImage& srcImg, doubl
 	double rotatedH = srcW * sinA + srcH * cosA;
 
 	double scale = min(rectClient.Width() / rotatedW, rectClient.Height() / rotatedH);
-	scale = min(scale, 1.0); // never upscale beyond native resolution in preview
+	scale = min(scale, 1.0);
 
 	graphics.TranslateTransform(
 		(Gdiplus::REAL)(rectClient.Width() / 2.0),
