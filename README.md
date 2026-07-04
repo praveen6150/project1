@@ -4,7 +4,7 @@ A Windows desktop application built with MFC (Microsoft Foundation Classes) and 
 ✨ Features
 Point Processing
 Brightness & Contrast adjustment
-Gamma correction
+Gamma correction 
 Histogram equalization & histogram graph view
 Posterization
 Bit-plane slicing
