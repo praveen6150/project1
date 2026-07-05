@@ -8,8 +8,9 @@ A Windows desktop application built with MFC (Microsoft Foundation Classes) and 
 
 | Main Interface | Processing Canvas |
 |---|---|
-| ![Main UI](<img width="1366" height="768" alt="arbitary" src="https://github.com/user-attachments/assets/af7beae3-8818-48ae-9924-4a6a149c9dea" />
-) | <img width="1366" height="768" alt="point_processes" src="https://github.com/user-attachments/assets/ba982f2c-93e6-47f6-aa88-ae435e73b640" />|<img width="1366" height="1143" alt="spatial_processes" src="https://github.com/user-attachments/assets/a4562989-392f-44ea-8a24-3a948ab6182b" />
+| ![Main UI](<img width="1366" height="768" alt="arbitary" src="https://github.com/user-attachments/assets/af7beae3-8818-48ae-9924-4a6a149c9dea" /><img width="1366" height="769" alt="prewitt-edge detection" src="https://github.com/user-attachments/assets/80f99ecb-ee5d-4340-9089-ffa0a2bac841" />
+<img width="1366" height="769" alt="lcrcb" src="https://github.com/user-attachments/assets/d78dbafb-4e26-4187-a374-a73fe751b726" /><img width="1366" height="769" alt="hsi" src="https://github.com/user-attachments/assets/7272bcf0-19b0-4611-a2ce-36f4d1efc46b" /><img width="1366" height="768" alt="point_processes" src="https://github.com/user-attachments/assets/e0a49d6b-5ad1-4ccf-8396-b942d5cb5bc4" />
+) | <img width="1366" height="769" alt="histogram" src="https://github.com/user-attachments/assets/d376c8d7-8446-4b1f-be26-6eaaa907a940" /> />
 
 
 > 💡 **Tip for adding screenshots:** Take a screenshot on your PC (`Win + Shift + S`), save it, and you can drag-and-drop the image file directly into the GitHub README editor box to upload it instantly!
