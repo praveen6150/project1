@@ -8,7 +8,6 @@
 #include "project1View.h"
 #include "resource.h"
 
-// CHsiDlg dialog
 
 IMPLEMENT_DYNAMIC(CHsiDlg, CDialogEx)
 
