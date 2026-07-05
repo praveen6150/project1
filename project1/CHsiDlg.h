@@ -35,18 +35,6 @@ protected:
 
 private:
     CImage      m_previewImage;
-    UINT_PTR    m_nTimerID;
-    bool        m_bDragging;
-
-    // Velocity tracking
-    DWORD       m_dwLastMoveTime;
-    int         m_nLastPos;
-    int         m_nLastControlID;
-
     void BuildPreviewImage();
-
     static const int  PREVIEW_SCALE = 4;   // 1/4 size preview
-    static const DWORD FAST_THRESHOLD_MS = 30;  // < 30ms  → too fast, skip
-    static const DWORD SLOW_THRESHOLD_MS = 80;  // > 80ms  → slow, full res
-    static const DWORD SETTLE_MS = 200; // stopped → full res
 };

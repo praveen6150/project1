@@ -32,6 +32,7 @@ void CContrastStretchDlg::DoDataExchange(CDataExchange* pDX)
 
 BEGIN_MESSAGE_MAP(CContrastStretchDlg, CDialogEx)
 	ON_WM_HSCROLL()
+    ON_NOTIFY(NM_CUSTOMDRAW, IDC_SLIDER_CONTRAST_MIN, &CContrastStretchDlg::OnNMCustomdrawSliderContrastMin)
 END_MESSAGE_MAP()
 
 
@@ -100,3 +101,10 @@ void CContrastStretchDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScroll
     CDialogEx::OnHScroll(nSBCode, nPos, pScrollBar);
 }
 
+
+void CContrastStretchDlg::OnNMCustomdrawSliderContrastMin(NMHDR* pNMHDR, LRESULT* pResult)
+{
+    LPNMCUSTOMDRAW pNMCD = reinterpret_cast<LPNMCUSTOMDRAW>(pNMHDR);
+    // TODO: Add your control notification handler code here
+    *pResult = 0;
+}

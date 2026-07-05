@@ -183,7 +183,6 @@ void Cproject1View::OnDraw(CDC* pDC)
 	memDC.SelectObject(pOldBitmap);
 }
 
-
 void Cproject1View::OnInitialUpdate()
 {
 	CScrollView::OnInitialUpdate();
@@ -296,7 +295,6 @@ void Cproject1View::OnInitialUpdate()
 		SetScrollSizes(MM_TEXT, CSize(100, 100));
 	}
 }
-
 
 // Cproject1View printing
 BOOL Cproject1View::OnPreparePrinting(CPrintInfo* pInfo)
@@ -1226,7 +1224,6 @@ void Cproject1View::ApplyLivePosterization(int levels)
 	Invalidate(FALSE);
 	UpdateWindow();
 }
-
 
 void Cproject1View::OnPointprocessPosterization()
 {

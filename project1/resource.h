@@ -66,7 +66,6 @@
 #define IDC_RADIO_270                   1056
 #define IDC_SLIDER_ANGLE                1057
 #define IDC_RADIO9                      1058
-#define IDC_STATIC_PREVIEW              1059
 #define ID_VIEW_FITTOWINDOW             32771
 #define ID_POINT_INVERTCOLORS           32773
 #define ID_Menu                         32778
