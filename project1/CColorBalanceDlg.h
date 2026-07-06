@@ -1,9 +1,6 @@
 #pragma once
 #include "afxdialogex.h"
 
-
-// CColorBalanceDlg dialog
-
 class CColorBalanceDlg : public CDialogEx
 {
 	DECLARE_DYNAMIC(CColorBalanceDlg)
@@ -19,7 +16,6 @@ public:
 	CSliderCtrl m_sliderGreen;
 	CSliderCtrl m_sliderBlue;
 
-// Dialog Data
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = ID_POINTPROCESS_COLORBALANCE };
 #endif
