@@ -4612,39 +4612,44 @@ void Cproject1View::OnPointprocessConverttograyscale()
 
 void Cproject1View::OnPointprocessHsl()
 {
-	// 1. Ensure a valid document and a loaded image exist
 	Cproject1Doc* pDoc = GetDocument();
-	if (!pDoc || pDoc->m_image.IsNull()) return;
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull())
+		return;
 
-	// 2. Initialize the dialog and pass it default starting points
-	CHslDlg dlg(this);
+	// 1. Instantiate the HSL slider dialog frame
+	CHslDlg dlg;
+
+	// 2. Link the dialog pointer live so it can talk back to this view canvas
 	dlg.m_pView = this;
-	dlg.m_nHue = 0;         // Default: No Hue offset
-	dlg.m_nSaturation = 0;  // Default: No changes to saturation
-	dlg.m_nLightness = 0;   // Default: No changes to lightness
 
-	// 3. Display the modal dialog window
-	if (dlg.DoModal() == IDOK)
+	// 3. Open the Dialog Window modally
+	if (dlg.DoModal() == IDCANCEL)
 	{
-		// Optional: Commit or clean up changes if user hits OK
-	}
-	else
-	{
-		// Optional: Rollback or refresh on Cancel
-		Invalidate();
+		// If the user clicks Cancel, discard the live tweaks and restore original backup copy
+		if (!pDoc->m_imageOriginal.IsNull())
+		{
+			pDoc->m_imageOriginal.BitBlt(pDoc->m_image.GetDC(), 0, 0, SRCCOPY);
+			pDoc->m_image.ReleaseDC();
+		}
+
+		// Repaint back to standard state
+		Invalidate(FALSE);
 	}
 }
-
 void Cproject1View::ApplyLiveHsl(int hOffset, int sOffset, int lOffset)
 {
 	Cproject1Doc* pDoc = GetDocument();
-	if (!pDoc || pDoc->m_image.IsNull()) return;
+	if (!pDoc || pDoc->m_image.IsNull() || pDoc->m_imageOriginal.IsNull()) return;
+
+	// --- Restore pristine original into the working canvas first ---
+	pDoc->m_imageOriginal.BitBlt(pDoc->m_image.GetDC(), 0, 0, SRCCOPY);
+	pDoc->m_image.ReleaseDC();
 
 	int width = pDoc->m_image.GetWidth();
 	int height = pDoc->m_image.GetHeight();
 	int bpp = pDoc->m_image.GetBPP();
 
-	// Skip low-bit depth or indexed palette images
 	if (bpp < 24) return;
 
 	int bytesPerPixel = bpp / 8;
@@ -4659,12 +4664,10 @@ void Cproject1View::ApplyLiveHsl(int hOffset, int sOffset, int lOffset)
 		{
 			BYTE* pPixel = pRow + (x * bytesPerPixel);
 
-			// Windows Bitmap layout is BGR
 			double b = pPixel[0] / 255.0;
 			double g = pPixel[1] / 255.0;
 			double r = pPixel[2] / 255.0;
 
-			// --- 1. Convert RGB to HSL ---
 			double maxColor = max(r, max(g, b));
 			double minColor = min(r, min(g, b));
 			double delta = maxColor - minColor;
@@ -4682,23 +4685,19 @@ void Cproject1View::ApplyLiveHsl(int hOffset, int sOffset, int lOffset)
 				else
 					h = (r - g) / delta + 4.0;
 
-				h *= 60.0; // Map back to degrees (0 - 360)
+				h *= 60.0;
 			}
 
-			// --- 2. Apply Slider Adjustments ---
 			h += hOffset;
 			if (h >= 360.0) h -= 360.0;
 			if (h < 0.0) h += 360.0;
 
 			s += (sOffset / 100.0);
-			if (s > 1.0) s = 1.0;
-			if (s < 0.0) s = 0.0;
+			s = max(0.0, min(1.0, s));
 
 			l += (lOffset / 100.0);
-			if (l > 1.0) l = 1.0;
-			if (l < 0.0) l = 0.0;
+			l = max(0.0, min(1.0, l));
 
-			// --- 3. Convert HSL Back to RGB ---
 			double newR = l, newG = l, newB = l;
 
 			if (s != 0.0)
@@ -4720,13 +4719,12 @@ void Cproject1View::ApplyLiveHsl(int hOffset, int sOffset, int lOffset)
 				newB = HueToRGB(p, q, (h / 360.0) - 1.0 / 3.0);
 			}
 
-			// Write final modified colors directly into output matrix
-			pPixel[0] = (BYTE)(newB * 255.0);
-			pPixel[1] = (BYTE)(newG * 255.0);
-			pPixel[2] = (BYTE)(newR * 255.0);
+			pPixel[0] = (BYTE)(newB * 255.0 + 0.5);
+			pPixel[1] = (BYTE)(newG * 255.0 + 0.5);
+			pPixel[2] = (BYTE)(newR * 255.0 + 0.5);
 		}
 	}
 
-	// Direct draw signal back to system
-	Invalidate();
+	Invalidate(FALSE);
+	UpdateWindow();
 }

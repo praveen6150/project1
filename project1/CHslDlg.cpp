@@ -27,48 +27,50 @@ BEGIN_MESSAGE_MAP(CHslDlg, CDialogEx)
 	ON_WM_HSCROLL()
 END_MESSAGE_MAP()
 
+// CHslDlg message handlers
 BOOL CHslDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
 
-	// Configure Hue Slider (0 - 360 degrees)
-	CSliderCtrl* pSliderHue = (CSliderCtrl*)GetDlgItem(IDC_SLIDER_HUE);
-	if (pSliderHue)
+	// Grab pointers directly from the underlying layout resource tree
+	CSliderCtrl* pHue = (CSliderCtrl*)GetDlgItem(IDC_SLIDER_HUE);
+	CSliderCtrl* pSat = (CSliderCtrl*)GetDlgItem(IDC_SLIDER_SATURATION);
+	CSliderCtrl* pLit = (CSliderCtrl*)GetDlgItem(IDC_SLIDER_LIGHTNESS);
+
+	if (pHue != nullptr)
 	{
-		pSliderHue->SetRange(0, 360);
-		pSliderHue->SetPos(m_nHue);
+		pHue->SetRange(-180, 180, TRUE);
+		pHue->SetPos(0);
+		pHue->SetLineSize(1);
+		pHue->SetPageSize(10);
 	}
 
-	// Configure Saturation Slider (0 - 100%)
-	CSliderCtrl* pSliderSat = (CSliderCtrl*)GetDlgItem(IDC_SLIDER_SATURATION);
-	if (pSliderSat)
+	if (pSat != nullptr)
 	{
-		pSliderSat->SetRange(0, 100);
-		pSliderSat->SetPos(m_nSaturation);
+		pSat->SetRange(-100, 100, TRUE);
+		pSat->SetPos(0);
+		pSat->SetLineSize(1);
+		pSat->SetPageSize(10);
 	}
 
-	// Configure Lightness Slider (0 - 100%)
-	CSliderCtrl* pSliderLight = (CSliderCtrl*)GetDlgItem(IDC_SLIDER_LIGHTNESS);
-	if (pSliderLight)
+	if (pLit != nullptr)
 	{
-		pSliderLight->SetRange(0, 100);
-		pSliderLight->SetPos(m_nLightness);
+		pLit->SetRange(-100, 100, TRUE);
+		pLit->SetPos(0);
+		pLit->SetLineSize(1);
+		pLit->SetPageSize(10);
 	}
 
-	// Initialize label display strings
-	CString strLabel;
-	strLabel.Format(_T("Hue: %d\u00B0"), m_nHue);
-	SetDlgItemText(IDC_STATIC_HUE_TEXT, strLabel);
+	// Sync member tracking state variables to match initial slider reset values
+	m_nHue = 0;
+	m_nSaturation = 0;
+	m_nLightness = 0;
 
-	strLabel.Format(_T("Saturation: %d%%"), m_nSaturation);
-	SetDlgItemText(IDC_STATIC_SATURATION_TEXT, strLabel);
-
-	strLabel.Format(_T("Lightness: %d%%"), m_nLightness);
-	SetDlgItemText(IDC_STATIC_LIGHTNESS_TEXT, strLabel);
-
-	CString strSummary;
-	strSummary.Format(_T("HSL = (%d, %d, %d)"), m_nHue, m_nSaturation, m_nLightness);
-	SetDlgItemText(IDC_STATIC_HSL, strSummary);
+	// Establish default baseline label readouts
+	SetDlgItemText(IDC_STATIC_HUE_TEXT, _T("Hue: 0\u00B0"));
+	SetDlgItemText(IDC_STATIC_SATURATION_TEXT, _T("Saturation: 0%"));
+	SetDlgItemText(IDC_STATIC_LIGHTNESS_TEXT, _T("Lightness: 0%"));
+	SetDlgItemText(IDC_STATIC_HSL, _T("HSL = (0, 0, 0)"));
 
 	return TRUE;
 }
