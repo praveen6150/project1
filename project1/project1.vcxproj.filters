@@ -75,6 +75,9 @@
     <ClInclude Include="CFlipRotateDlg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="CHsvDlg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="project1.cpp">
@@ -126,6 +129,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CFlipRotateDlg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CHsvDlg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

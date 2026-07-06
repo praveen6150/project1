@@ -27,7 +27,7 @@
 #endif
 #include "CContrastStretchDlg.h"
 #include "CFlipRotateDlg.h"
-
+#include "CHsvDlg.h"
 // Cproject1View
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
 
@@ -84,6 +84,8 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_SPATIALDOMAINFILTERING_DOMAINFILTERINGCLOSING, &Cproject1View::OnSpatialdomainfilteringDomainfilteringclosing)
 	ON_COMMAND(ID_SPATIALDOMAINFILTERING_DOMAINFILTERINGMORPHOLOGICALGRADIENT, &Cproject1View::OnSpatialdomainfilteringDomainfilteringmorphologicalgradient)
 	ON_COMMAND(ID_TRANSFORM_FLIP, &Cproject1View::OnImageFlipRotate)
+	ON_COMMAND(IDD_DIALOG_HSV, &Cproject1View::OnColorsHsvadjustment)
+	ON_COMMAND(ID_POINTPROCESS_HUE32840, &Cproject1View::OnColorsHsvadjustment)
 END_MESSAGE_MAP()
 
 // Cproject1View construction/destruction
@@ -4309,4 +4311,245 @@ void Cproject1View::DrawArbitraryRotationPreview(CDC* pTargetDC, CImage& srcImg,
 	graphics.DrawImage(pBmp, -srcW / 2, -srcH / 2, srcW, srcH);
 
 	delete pBmp;
+}
+
+void Cproject1View::ApplyLiveHSV(int hDeg, int sSat, int vVal)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull() || pDoc->m_imageOriginal.IsNull())
+		return;
+
+	// Restore original image first
+	pDoc->m_imageOriginal.BitBlt(pDoc->m_image.GetDC(), 0, 0, SRCCOPY);
+	pDoc->m_image.ReleaseDC();
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp < 24) return;
+
+	BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
+	int   pitch = pDoc->m_image.GetPitch();
+	int   bytesPerPix = bpp / 8;
+
+	double hueShift = hDeg / 360.0;         // Normalize to 0.0 - 1.0 shift
+	double satFactor = 1.0 + (sSat / 100.0); // 0.0x to 2.0x
+	double valOffset = (vVal / 100.0);        // -1.0 to +1.0
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = pBits + (y * pitch);
+
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pPixel = pRow + (x * bytesPerPix);
+
+			// Read BGR normalized to 0.0 - 1.0
+			double B = pPixel[0] / 255.0;
+			double G = pPixel[1] / 255.0;
+			double R = pPixel[2] / 255.0;
+
+			// --- RGB to HSV ---
+			double maxC = max(R, max(G, B));
+			double minC = min(R, min(G, B));
+			double delta = maxC - minC;
+
+			// Value is simply the maximum component
+			double V = maxC;
+
+			// Saturation
+			double S = (V > 0.0001) ? (delta / V) : 0.0;
+
+			// Hue (0.0 to 1.0)
+			double H = 0.0;
+			if (delta > 0.0001)
+			{
+				if (maxC == R)
+					H = fmod((G - B) / delta, 6.0) / 6.0;
+				else if (maxC == G)
+					H = ((B - R) / delta + 2.0) / 6.0;
+				else
+					H = ((R - G) / delta + 4.0) / 6.0;
+
+				if (H < 0.0) H += 1.0;
+			}
+
+			// --- Apply HSV adjustments ---
+			H += hueShift;
+			if (H > 1.0) H -= 1.0;
+			if (H < 0.0) H += 1.0;
+
+			S = max(0.0, min(1.0, S * satFactor));
+			V = max(0.0, min(1.0, V + valOffset));
+
+			// --- HSV back to RGB ---
+			double newR, newG, newB;
+
+			if (S == 0.0)
+			{
+				newR = newG = newB = V;
+			}
+			else
+			{
+				double h6 = H * 6.0;
+				int    hi = (int)h6 % 6;
+				double f = h6 - (int)h6;
+				double p = V * (1.0 - S);
+				double q = V * (1.0 - S * f);
+				double t = V * (1.0 - S * (1.0 - f));
+
+				switch (hi)
+				{
+				case 0: newR = V; newG = t; newB = p; break;
+				case 1: newR = q; newG = V; newB = p; break;
+				case 2: newR = p; newG = V; newB = t; break;
+				case 3: newR = p; newG = q; newB = V; break;
+				case 4: newR = t; newG = p; newB = V; break;
+				default: newR = V; newG = p; newB = q; break;
+				}
+			}
+
+			// Write BGR back to byte stream
+			pPixel[0] = (BYTE)max(0.0, min(255.0, newB * 255.0));
+			pPixel[1] = (BYTE)max(0.0, min(255.0, newG * 255.0));
+			pPixel[2] = (BYTE)max(0.0, min(255.0, newR * 255.0));
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+void Cproject1View::ApplyLiveHSVPreview(int hDeg, int sSat, int vVal, CImage* pSmallImg)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_image.IsNull() || !pSmallImg || pSmallImg->IsNull()) return;
+
+	int fullW = pDoc->m_imageOriginal.GetWidth();
+	int fullH = pDoc->m_imageOriginal.GetHeight();
+	int prevW = pSmallImg->GetWidth();
+	int prevH = pSmallImg->GetHeight();
+
+	HDC hdcSrc = pDoc->m_imageOriginal.GetDC();
+	HDC hdcDest = pSmallImg->GetDC();
+
+	::SetStretchBltMode(hdcDest, HALFTONE);
+	::SetBrushOrgEx(hdcDest, 0, 0, NULL);
+	::StretchBlt(hdcDest, 0, 0, prevW, prevH, hdcSrc, 0, 0, fullW, fullH, SRCCOPY);
+
+	pDoc->m_imageOriginal.ReleaseDC();
+	pSmallImg->ReleaseDC();
+
+	int   bpp = pSmallImg->GetBPP();
+	BYTE* pBits = (BYTE*)pSmallImg->GetBits();
+	int   pitch = pSmallImg->GetPitch();
+	int   bytesPerPix = bpp / 8;
+
+	double hueShift = hDeg / 360.0;
+	double satFactor = 1.0 + (sSat / 100.0);
+	double valOffset = (vVal / 100.0);
+
+	for (int y = 0; y < prevH; y++)
+	{
+		BYTE* pRow = pBits + (y * pitch);
+		for (int x = 0; x < prevW; x++)
+		{
+			BYTE* pPixel = pRow + (x * bytesPerPix);
+
+			double B = pPixel[0] / 255.0;
+			double G = pPixel[1] / 255.0;
+			double R = pPixel[2] / 255.0;
+
+			double maxC = max(R, max(G, B));
+			double minC = min(R, min(G, B));
+			double delta = maxC - minC;
+
+			double V = maxC;
+			double S = (V > 0.0001) ? (delta / V) : 0.0;
+			double H = 0.0;
+
+			if (delta > 0.0001)
+			{
+				if (maxC == R) H = fmod((G - B) / delta, 6.0) / 6.0;
+				else if (maxC == G) H = ((B - R) / delta + 2.0) / 6.0;
+				else                H = ((R - G) / delta + 4.0) / 6.0;
+				if (H < 0.0) H += 1.0;
+			}
+
+			H += hueShift;
+			if (H > 1.0) H -= 1.0;
+			if (H < 0.0) H += 1.0;
+
+			S = max(0.0, min(1.0, S * satFactor));
+			V = max(0.0, min(1.0, V + valOffset));
+
+			double newR, newG, newB;
+			if (S == 0.0)
+			{
+				newR = newG = newB = V;
+			}
+			else
+			{
+				double h6 = H * 6.0;
+				int    hi = (int)h6 % 6;
+				double f = h6 - (int)h6;
+				double p = V * (1.0 - S);
+				double q = V * (1.0 - S * f);
+				double t = V * (1.0 - S * (1.0 - f));
+
+				switch (hi)
+				{
+				case 0: newR = V; newG = t; newB = p; break;
+				case 1: newR = q; newG = V; newB = p; break;
+				case 2: newR = p; newG = V; newB = t; break;
+				case 3: newR = p; newG = q; newB = V; break;
+				case 4: newR = t; newG = p; newB = V; break;
+				default:newR = V; newG = p; newB = q; break;
+				}
+			}
+
+			pPixel[0] = (BYTE)max(0.0, min(255.0, newB * 255.0));
+			pPixel[1] = (BYTE)max(0.0, min(255.0, newG * 255.0));
+			pPixel[2] = (BYTE)max(0.0, min(255.0, newR * 255.0));
+		}
+	}
+
+	HDC hdcSmall = pSmallImg->GetDC();
+	HDC hdcFull = pDoc->m_image.GetDC();
+
+	::SetStretchBltMode(hdcFull, HALFTONE);
+	::SetBrushOrgEx(hdcFull, 0, 0, NULL);
+	::StretchBlt(hdcFull, 0, 0, fullW, fullH, hdcSmall, 0, 0, prevW, prevH, SRCCOPY);
+
+	pDoc->m_image.ReleaseDC();
+	pSmallImg->ReleaseDC();
+}
+
+
+void Cproject1View::OnColorsHsvadjustment()
+{
+		Cproject1Doc* pDoc = GetDocument();
+		ASSERT_VALID(pDoc);
+		if (!pDoc || pDoc->m_image.IsNull())
+		{
+			AfxMessageBox(_T("No active image found to process!"));
+			return;
+		}
+	
+		// Create the dialog instance and pass it this view's context
+		CHsvDlg dlg(this);
+		dlg.m_pView = this;
+	
+		// Open the dialog box as a modal window
+		if (dlg.DoModal() == IDCANCEL)
+		{
+			// Revert the working image back to the pristine original copy if user cancels
+			pDoc->m_imageOriginal.BitBlt(pDoc->m_image.GetDC(), 0, 0, SRCCOPY);
+			pDoc->m_image.ReleaseDC();
+	
+			// Force a visual window redraw
+			Invalidate(FALSE);
+			UpdateWindow();
+		}
 }

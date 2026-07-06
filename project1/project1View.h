@@ -22,6 +22,9 @@ public:
 	CImage m_imgBackup;
 	CHistogramDlg* m_pHistDlg; // <-- 2. ADD THIS LINE TO TRACK THE OPENED WINDOW
 	std::vector<BYTE> m_pixelBackupBuffer;
+	// HSV processing functions
+	void ApplyLiveHSV(int hDeg, int sSat, int vVal);
+	void ApplyLiveHSVPreview(int hDeg, int sSat, int vVal, CImage* pSmallImg);
 	// Operations
 public:
 
@@ -51,6 +54,7 @@ protected:
 	void RotateImageArbitrary(CImage& img, double angleDegrees);
 
 protected:
+	//afx_msg void OnColorsHsvadjustment();
 	DECLARE_MESSAGE_MAP()
 public:
 	afx_msg void OnViewFittowindow();
@@ -119,6 +123,8 @@ public:
 	afx_msg void Rotate270();
 	afx_msg void SetPreviewRotationAngle(double angle, BOOL bActive);
 	afx_msg void DrawArbitraryRotationPreview(CDC* pDC, CImage& srcImg, double angleDegrees);
+	
+	afx_msg void OnColorsHsvadjustment();
 };
 
 #ifndef _DEBUG  // debug version in project1View.cpp

@@ -204,6 +204,7 @@
     <ClInclude Include="ChildFrm.h" />
     <ClInclude Include="CHistogramDlg.h" />
     <ClInclude Include="CHsiDlg.h" />
+    <ClInclude Include="CHsvDlg.h" />
     <ClInclude Include="CPosterizationDlg.h" />
     <ClInclude Include="CSolarizationDlg.h" />
     <ClInclude Include="CYcbCrDlg.h" />
@@ -226,6 +227,7 @@
     <ClCompile Include="ChildFrm.cpp" />
     <ClCompile Include="CHistogramDlg.cpp" />
     <ClCompile Include="CHsiDlg.cpp" />
+    <ClCompile Include="CHsvDlg.cpp" />
     <ClCompile Include="CPosterizationDlg.cpp" />
     <ClCompile Include="CSolarizationDlg.cpp" />
     <ClCompile Include="CYcbCrDlg.cpp" />
