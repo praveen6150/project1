@@ -28,6 +28,7 @@
 #include "CContrastStretchDlg.h"
 #include "CFlipRotateDlg.h"
 #include "CHsvDlg.h"
+#include "CHslDlg.h"
 // Cproject1View
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
 
@@ -86,6 +87,8 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_TRANSFORM_FLIP, &Cproject1View::OnImageFlipRotate)
 	ON_COMMAND(IDD_DIALOG_HSV, &Cproject1View::OnColorsHsvadjustment)
 	ON_COMMAND(ID_POINTPROCESS_HUE32840, &Cproject1View::OnColorsHsvadjustment)
+	ON_COMMAND(ID_POINTPROCESS_CONVERTTOGRAYSCALE, &Cproject1View::OnPointprocessConverttograyscale)
+	ON_COMMAND(ID_POINTPROCESS_HUE32842, &Cproject1View::OnPointprocessHsl)
 END_MESSAGE_MAP()
 
 // Cproject1View construction/destruction
@@ -4552,4 +4555,178 @@ void Cproject1View::OnColorsHsvadjustment()
 			Invalidate(FALSE);
 			UpdateWindow();
 		}
+}
+
+void Cproject1View::OnPointprocessConverttograyscale()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc) return;
+
+	// Assuming your image is stored as m_image in the Document class
+	if (pDoc->m_image.IsNull()) return;
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bpp = pDoc->m_image.GetBPP(); // Bits Per Pixel (e.g., 24 or 32)
+
+	// Scenario 1: If it's already an 8-bit grayscale or 1-bit binary image, do nothing
+	if (bpp < 24)
+	{
+		return;
+	}
+
+	int bytesPerPixel = bpp / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
+
+	// Loop through every pixel row by row to handle Windows bitmap memory layout safely
+	for (int y = 0; y < height; y++)
+	{
+		// Get the pointer to the start of the current row
+		BYTE* pRow = pBits + (y * pitch);
+
+		for (int x = 0; x < width; x++)
+		{
+			// Point to the specific pixel's channels
+			BYTE* pPixel = pRow + (x * bytesPerPixel);
+
+			// Windows bitmaps store colors in BGR order natively:
+			BYTE blue = pPixel[0];
+			BYTE green = pPixel[1];
+			BYTE red = pPixel[2];
+
+			// Fast integer bit-shifted Luminosity Method 
+			// Equivalent to: (0.299 * R) + (0.587 * G) + (0.114 * B)
+			BYTE gray = (BYTE)((red * 77 + green * 150 + blue * 29) >> 8);
+
+			// Force all channels to match the gray value
+			pPixel[0] = gray; // B
+			pPixel[1] = gray; // G
+			pPixel[2] = gray; // R
+
+		}
+	}
+
+	Invalidate();
+}
+
+void Cproject1View::OnPointprocessHsl()
+{
+	// 1. Ensure a valid document and a loaded image exist
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_image.IsNull()) return;
+
+	// 2. Initialize the dialog and pass it default starting points
+	CHslDlg dlg(this);
+	dlg.m_pView = this;
+	dlg.m_nHue = 0;         // Default: No Hue offset
+	dlg.m_nSaturation = 0;  // Default: No changes to saturation
+	dlg.m_nLightness = 0;   // Default: No changes to lightness
+
+	// 3. Display the modal dialog window
+	if (dlg.DoModal() == IDOK)
+	{
+		// Optional: Commit or clean up changes if user hits OK
+	}
+	else
+	{
+		// Optional: Rollback or refresh on Cancel
+		Invalidate();
+	}
+}
+
+void Cproject1View::ApplyLiveHsl(int hOffset, int sOffset, int lOffset)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_image.IsNull()) return;
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bpp = pDoc->m_image.GetBPP();
+
+	// Skip low-bit depth or indexed palette images
+	if (bpp < 24) return;
+
+	int bytesPerPixel = bpp / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = pBits + (y * pitch);
+
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pPixel = pRow + (x * bytesPerPixel);
+
+			// Windows Bitmap layout is BGR
+			double b = pPixel[0] / 255.0;
+			double g = pPixel[1] / 255.0;
+			double r = pPixel[2] / 255.0;
+
+			// --- 1. Convert RGB to HSL ---
+			double maxColor = max(r, max(g, b));
+			double minColor = min(r, min(g, b));
+			double delta = maxColor - minColor;
+
+			double h = 0.0, s = 0.0, l = (maxColor + minColor) / 2.0;
+
+			if (delta != 0.0)
+			{
+				s = (l <= 0.5) ? (delta / (maxColor + minColor)) : (delta / (2.0 - maxColor - minColor));
+
+				if (maxColor == r)
+					h = (g - b) / delta + (g < b ? 6.0 : 0.0);
+				else if (maxColor == g)
+					h = (b - r) / delta + 2.0;
+				else
+					h = (r - g) / delta + 4.0;
+
+				h *= 60.0; // Map back to degrees (0 - 360)
+			}
+
+			// --- 2. Apply Slider Adjustments ---
+			h += hOffset;
+			if (h >= 360.0) h -= 360.0;
+			if (h < 0.0) h += 360.0;
+
+			s += (sOffset / 100.0);
+			if (s > 1.0) s = 1.0;
+			if (s < 0.0) s = 0.0;
+
+			l += (lOffset / 100.0);
+			if (l > 1.0) l = 1.0;
+			if (l < 0.0) l = 0.0;
+
+			// --- 3. Convert HSL Back to RGB ---
+			double newR = l, newG = l, newB = l;
+
+			if (s != 0.0)
+			{
+				double q = (l < 0.5) ? (l * (1.0 + s)) : (l + s - l * s);
+				double p = 2.0 * l - q;
+
+				auto HueToRGB = [](double p, double q, double t) {
+					if (t < 0.0) t += 1.0;
+					if (t > 1.0) t -= 1.0;
+					if (t < 1.0 / 6.0) return p + (q - p) * 6.0 * t;
+					if (t < 1.0 / 2.0) return q;
+					if (t < 2.0 / 3.0) return p + (q - p) * (2.0 / 3.0 - t) * 6.0;
+					return p;
+					};
+
+				newR = HueToRGB(p, q, (h / 360.0) + 1.0 / 3.0);
+				newG = HueToRGB(p, q, (h / 360.0));
+				newB = HueToRGB(p, q, (h / 360.0) - 1.0 / 3.0);
+			}
+
+			// Write final modified colors directly into output matrix
+			pPixel[0] = (BYTE)(newB * 255.0);
+			pPixel[1] = (BYTE)(newG * 255.0);
+			pPixel[2] = (BYTE)(newR * 255.0);
+		}
+	}
+
+	// Direct draw signal back to system
+	Invalidate();
 }

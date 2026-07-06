@@ -68,7 +68,6 @@ void CHsvDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 	int currentPos = pSlider->GetPos();
 	CString strLabel;
 
-	// Distribute positioning updates to labels
 	if (controlID == IDC_SLIDER_HUE)
 	{
 		m_nHue = currentPos;
@@ -88,24 +87,13 @@ void CHsvDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 		SetDlgItemText(IDC_STATIC_VALUE_TEXT, strLabel);
 	}
 
-	// Update summary text box
 	CString strSummary;
 	strSummary.Format(_T("HSV = (%d, %d, %d)"), m_nHue, m_nSaturation, m_nValue);
 	SetDlgItemText(IDC_STATIC_HSV, strSummary);
 
 	if (m_pView == nullptr) return;
 
-	// Real-time rendering split logic
-	if (nSBCode == SB_THUMBTRACK)
-	{
-		// Fast performance update via downscaled background preview calculations
-		m_pView->ApplyLiveHSVPreview(m_nHue, m_nSaturation, m_nValue, &m_previewImage);
-	}
-	else if (nSBCode == SB_THUMBPOSITION || nSBCode == SB_ENDSCROLL)
-	{
-		// Draw complete clean full-resolution image when user finishes scrolling
-		m_pView->ApplyLiveHSV(m_nHue, m_nSaturation, m_nValue);
-	}
+	m_pView->ApplyLiveHSV(m_nHue, m_nSaturation, m_nValue);
 
 	CDialogEx::OnHScroll(nSBCode, nPos, pScrollBar);
 }

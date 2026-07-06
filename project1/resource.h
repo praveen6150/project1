@@ -17,6 +17,7 @@
 #define ID_POINTPROCESS_BITPLANE        328
 #define IDD_DIALOG1                     330
 #define IDD_DIALOG_HSV                  331
+#define IDD_DIALOG_HSL                  332
 #define IDC_EDIT_BRIGHTNESS             1007
 #define IDC_EDIT_CONTRAST               1008
 #define IDC_STATIC_BRIGHT_TEXT          1010
@@ -70,6 +71,9 @@
 #define IDC_SLIDER_VALUE                1060
 #define IDC_STATIC_HSV                  1061
 #define IDC_STATIC_VALUE_TEXT           1062
+#define IDC_SLIDER_LIGHTNESS            1063
+#define IDC_STATIC_LIGHTNESS_TEXT       1064
+#define IDC_STATIC_HSL                  1065
 #define ID_VIEW_FITTOWINDOW             32771
 #define ID_POINT_INVERTCOLORS           32773
 #define ID_Menu                         32778
@@ -138,14 +142,16 @@
 #define ID_TRANSFORM_STRETCH            32838
 #define ID_Menu32839                    32839
 #define ID_POINTPROCESS_HUE32840        32840
+#define ID_POINTPROCESS_CONVERTTOGRAYSCALE 32841
+#define ID_POINTPROCESS_HUE32842        32842
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        336
-#define _APS_NEXT_COMMAND_VALUE         32841
-#define _APS_NEXT_CONTROL_VALUE         1063
+#define _APS_NEXT_COMMAND_VALUE         32843
+#define _APS_NEXT_CONTROL_VALUE         1066
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif
