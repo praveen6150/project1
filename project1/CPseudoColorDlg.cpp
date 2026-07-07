@@ -19,6 +19,7 @@ void CPseudoColorDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
 	DDX_Control(pDX, IDC_COMBO_COLOR_MAP, m_ctrlComboMap);
+	DDX_Control(pDX, IDC_STATIC_SLIDER_VALUE, m_ctrlSliderValue);
 }
 
 BEGIN_MESSAGE_MAP(CPseudoColorDlg, CDialogEx)
@@ -35,16 +36,20 @@ BOOL CPseudoColorDlg::OnInitDialog()
 	m_ctrlComboMap.AddString(_T("Cool (Cyan-Magenta)"));
 	m_ctrlComboMap.SetCurSel(0);
 
-	// Initialize the slider range from 0 to 255
-	// Replace IDC_SLIDER_COLOR_SHIFT with your actual slider ID from the resource editor
 	CSliderCtrl* pSlider = (CSliderCtrl*)GetDlgItem(IDC_SLIDER_COLOR_SHIFT);
 	if (pSlider) {
 		pSlider->SetRange(0, 255);
-		pSlider->SetPos(0); // Start at 0
+		pSlider->SetPos(0);
 	}
+
+	// Initialize the value label to match the slider's starting position
+	CString strVal;
+	strVal.Format(_T("%d"), 0);
+	m_ctrlSliderValue.SetWindowText(strVal);
 
 	return TRUE;
 }
+
 
 void CPseudoColorDlg::OnCbnSelchangeComboColorMap()
 {
@@ -57,9 +62,16 @@ void CPseudoColorDlg::OnCbnSelchangeComboColorMap()
 void CPseudoColorDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 {
 	int selectedIndex = m_ctrlComboMap.GetCurSel();
+	int sliderValue = GetSliderValue();
+
+	// Update the numeric label to reflect the current slider position
+	CString strVal;
+	strVal.Format(_T("%d"), sliderValue);
+	m_ctrlSliderValue.SetWindowText(strVal);
+
 	if (m_pView && selectedIndex != CB_ERR) {
-		// Pass both the map index and the slider position
-		m_pView->ApplyLivePseudoColor(selectedIndex, GetSliderValue());
+		m_pView->ApplyLivePseudoColor(selectedIndex, sliderValue);
 	}
+
 	CDialogEx::OnHScroll(nSBCode, nPos, pScrollBar);
 }

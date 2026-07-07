@@ -25,6 +25,8 @@ public:
 public:
 	virtual BOOL OnNewDocument();
 	virtual BOOL OnOpenDocument(LPCTSTR lpszPathName);
+	virtual BOOL OnSaveDocument(LPCTSTR lpszPathName);
+	virtual BOOL DoSave(LPCTSTR lpszPathName, BOOL bReplace = TRUE);
 	virtual void Serialize(CArchive& ar);
 #ifdef SHARED_HANDLERS
 	virtual void InitializeSearchContent();

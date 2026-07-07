@@ -92,6 +92,7 @@
 #define IDC_STATIC_COLOR_DESC           1079
 #define IDC_SLIDER1                     1080
 #define IDC_SLIDER_COLOR_SHIFT          1080
+#define IDC_STATIC_SLIDER_VALUE         1082
 #define ID_VIEW_FITTOWINDOW             32771
 #define ID_POINT_INVERTCOLORS           32773
 #define ID_Menu                         32778
@@ -176,7 +177,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        336
 #define _APS_NEXT_COMMAND_VALUE         32850
-#define _APS_NEXT_CONTROL_VALUE         1081
+#define _APS_NEXT_CONTROL_VALUE         1083
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

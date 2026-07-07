@@ -23,6 +23,9 @@ protected:
 	afx_msg void OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
 	DECLARE_MESSAGE_MAP()
 
+protected:
+	CStatic   m_ctrlSliderValue;
+
 public:
 	CComboBox m_ctrlComboMap;
 	Cproject1View* m_pView; // View pointer for live updates
@@ -31,8 +34,7 @@ public:
 	int GetSelectedMapIndex() { return m_ctrlComboMap.GetCurSel(); }
 
 	int GetSliderValue() {
-		CSliderCtrl* pSlider = (CSliderCtrl*)GetDlgItem(IDC_SLIDER1);
+		CSliderCtrl* pSlider = (CSliderCtrl*)GetDlgItem(IDC_SLIDER_COLOR_SHIFT);
 		return pSlider ? pSlider->GetPos() : 0;
-
 	}
 };

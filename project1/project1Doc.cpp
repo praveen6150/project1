@@ -82,7 +82,78 @@ BOOL Cproject1Doc::OnOpenDocument(LPCTSTR lpszPathName)
 	return TRUE;
 }
 
-// Cproject1Doc serialization
+BOOL Cproject1Doc::OnSaveDocument(LPCTSTR lpszPathName)
+{
+	// 1. Double check that we actually have an image buffer loaded in RAM
+	if (m_image.IsNull())
+	{
+		AfxMessageBox(_T("No active image found to save."));
+		return FALSE;
+	}
+
+	// 2. Save the CImage memory layer directly back to disk.
+	// CImage automatically detects the format (BMP, JPG, PNG) using the file extension.
+	HRESULT hr = m_image.Save(lpszPathName);
+
+	if (FAILED(hr))
+	{
+		AfxMessageBox(_T("Failed to save the image file. Make sure the file isn't write-protected."));
+		return FALSE;
+	}
+
+	// 3. Clear the dirty modification flag since the disk matches our RAM workspace now
+	SetModifiedFlag(FALSE);
+
+	return TRUE;
+}
+
+BOOL Cproject1Doc::DoSave(LPCTSTR lpszPathName, BOOL bReplace)
+{
+	CString strPathName = lpszPathName;
+
+	// If no path was given, this is a "Save As" -> ask the user
+	if (lpszPathName == NULL)
+	{
+		CString filter;
+		filter = _T("PNG Image (*.png)|*.png|")
+			_T("JPEG Image (*.jpg)|*.jpg|")
+			_T("Bitmap Image (*.bmp)|*.bmp|")
+			_T("TIFF Image (*.tif)|*.tif||");
+
+		CFileDialog dlg(FALSE,
+			_T("png"),
+			GetPathName().IsEmpty() ? _T("Untitled") : GetPathName(),
+			OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST,
+			filter);
+
+		if (dlg.DoModal() != IDOK)
+			return FALSE;
+
+		strPathName = dlg.GetPathName();
+	}
+
+	// ---------- STEP 6 GOES HERE ----------
+	// Validate the extension before attempting to save
+	CString ext = strPathName.Mid(strPathName.ReverseFind(_T('.')) + 1).MakeLower();
+	if (ext != _T("png") && ext != _T("jpg") && ext != _T("jpeg") &&
+		ext != _T("bmp") && ext != _T("tif") && ext != _T("tiff"))
+	{
+		AfxMessageBox(_T("Unsupported file format. Please use PNG, JPG, BMP, or TIFF."));
+		return FALSE;
+	}
+	// ---------------------------------------
+
+	// Reuse your existing save logic
+	if (!OnSaveDocument(strPathName))
+		return FALSE;
+
+	if (bReplace)
+	{
+		SetPathName(strPathName);
+	}
+
+	return TRUE;
+}
 
 void Cproject1Doc::Serialize(CArchive& ar)
 {
