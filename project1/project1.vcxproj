@@ -206,6 +206,8 @@
     <ClInclude Include="CHsiDlg.h" />
     <ClInclude Include="CHslDlg.h" />
     <ClInclude Include="CHsvDlg.h" />
+    <ClInclude Include="CInverseLogTransformDlg.h" />
+    <ClInclude Include="CLogTransformDlg.h" />
     <ClInclude Include="CPosterizationDlg.h" />
     <ClInclude Include="CSolarizationDlg.h" />
     <ClInclude Include="CYcbCrDlg.h" />
@@ -230,6 +232,8 @@
     <ClCompile Include="CHsiDlg.cpp" />
     <ClCompile Include="CHslDlg.cpp" />
     <ClCompile Include="CHsvDlg.cpp" />
+    <ClCompile Include="CInverseLogTransformDlg.cpp" />
+    <ClCompile Include="CLogTransformDlg.cpp" />
     <ClCompile Include="CPosterizationDlg.cpp" />
     <ClCompile Include="CSolarizationDlg.cpp" />
     <ClCompile Include="CYcbCrDlg.cpp" />

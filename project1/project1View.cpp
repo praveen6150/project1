@@ -29,6 +29,8 @@
 #include "CFlipRotateDlg.h"
 #include "CHsvDlg.h"
 #include "CHslDlg.h"
+#include "CLogTransformDlg.h"
+#include "CInverseLogTransformDlg.h"
 // Cproject1View
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
 
@@ -89,6 +91,8 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_POINTPROCESS_HUE32840, &Cproject1View::OnColorsHsvadjustment)
 	ON_COMMAND(ID_POINTPROCESS_CONVERTTOGRAYSCALE, &Cproject1View::OnPointprocessConverttograyscale)
 	ON_COMMAND(ID_POINTPROCESS_HUE32842, &Cproject1View::OnPointprocessHsl)
+	ON_COMMAND(ID_INTENSITYANDMAPPINGTRANSFORMATION_LOGTRANSFORMATION, &Cproject1View::OnPointprocessLogtransformation)
+	ON_COMMAND(ID_INTENSITYANDMAPPINGTRANSFORMATION_INVERSELOGTRANSFORMATION, &Cproject1View::OnPointprocessInverselogtransformation)
 END_MESSAGE_MAP()
 
 // Cproject1View construction/destruction
@@ -4727,4 +4731,178 @@ void Cproject1View::ApplyLiveHsl(int hOffset, int sOffset, int lOffset)
 
 	Invalidate(FALSE);
 	UpdateWindow();
+}
+
+void Cproject1View::OnPointprocessLogtransformation()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull())
+		return;
+
+	int height = pDoc->m_image.GetHeight();
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+	size_t totalBytes = (size_t)absPitch * height;
+
+	m_pixelBackupBuffer.resize(totalBytes);
+	BYTE* pImgBits = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) {
+		pImgBits += pitch * (height - 1);
+	}
+	std::memcpy(m_pixelBackupBuffer.data(), pImgBits, totalBytes);
+
+	CLogTransformDlg dlg(this);
+	dlg.m_pView = this; // Pass this view pointer to the dialog!
+
+	if (dlg.DoModal() == IDOK)
+	{
+		pDoc->SetModifiedFlag(TRUE);
+		pDoc->UpdateAllViews(NULL);
+	}
+	else
+	{
+		// Restore original on cancel
+		std::memcpy(pImgBits, m_pixelBackupBuffer.data(), totalBytes);
+		pDoc->UpdateAllViews(NULL);
+	}
+}
+
+void Cproject1View::ApplyLiveLog(double cVal)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull() || m_pixelBackupBuffer.empty())
+		return;
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bpp = pDoc->m_image.GetBPP();
+	int bytesPerPixel = bpp / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+
+	BYTE* pDstBase = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) {
+		pDstBase += pitch * (height - 1);
+	}
+	BYTE* pSrcBase = m_pixelBackupBuffer.data();
+
+	// Fast Look-Up Table for live updates
+	BYTE lut[256];
+	for (int i = 0; i < 256; i++)
+	{
+		double logValue = cVal * std::log(1.0 + i);
+		if (logValue > 255.0) logValue = 255.0;
+		if (logValue < 0.0)   logValue = 0.0;
+		lut[i] = (BYTE)(logValue + 0.5);
+	}
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pSrcRow = pSrcBase + (y * absPitch);
+		BYTE* pDstRow = pDstBase + (y * absPitch);
+
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pSrcPixel = pSrcRow + (x * bytesPerPixel);
+			BYTE* pDstPixel = pDstRow + (x * bytesPerPixel);
+
+			pDstPixel[0] = lut[pSrcPixel[0]]; // B
+			pDstPixel[1] = lut[pSrcPixel[1]]; // G
+			pDstPixel[2] = lut[pSrcPixel[2]]; // R
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+void Cproject1View::ApplyLiveInverseLog(double cVal)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull() || m_pixelBackupBuffer.empty())
+		return;
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bpp = pDoc->m_image.GetBPP();
+	int bytesPerPixel = bpp / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+
+	BYTE* pDstBase = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) {
+		pDstBase += pitch * (height - 1);
+	}
+	BYTE* pSrcBase = m_pixelBackupBuffer.data();
+
+	// Generate Fast Look-Up Table for Exponential/Inverse Log mapping
+	BYTE lut[256];
+	for (int i = 0; i < 256; i++)
+	{
+		// Formula: s = c * (exp(r / 255.0) - 1)
+		double invLogValue = cVal * (std::exp(i / 255.0) - 1.0);
+
+		if (invLogValue > 255.0) invLogValue = 255.0;
+		if (invLogValue < 0.0)   invLogValue = 0.0;
+
+		lut[i] = (BYTE)(invLogValue + 0.5);
+	}
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pSrcRow = pSrcBase + (y * absPitch);
+		BYTE* pDstRow = pDstBase + (y * absPitch);
+
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pSrcPixel = pSrcRow + (x * bytesPerPixel);
+			BYTE* pDstPixel = pDstRow + (x * bytesPerPixel);
+
+			pDstPixel[0] = lut[pSrcPixel[0]]; // Blue
+			pDstPixel[1] = lut[pSrcPixel[1]]; // Green
+			pDstPixel[2] = lut[pSrcPixel[2]]; // Red
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+void Cproject1View::OnPointprocessInverselogtransformation()
+{
+		Cproject1Doc* pDoc = GetDocument();
+		ASSERT_VALID(pDoc);
+		if (!pDoc || pDoc->m_image.IsNull())
+			return;
+	
+		int height = pDoc->m_image.GetHeight();
+		int pitch = pDoc->m_image.GetPitch();
+		int absPitch = std::abs(pitch);
+		size_t totalBytes = (size_t)absPitch * height;
+	
+		m_pixelBackupBuffer.resize(totalBytes);
+		BYTE* pImgBits = (BYTE*)pDoc->m_image.GetBits();
+		if (pitch < 0) {
+			pImgBits += pitch * (height - 1);
+		}
+		std::memcpy(m_pixelBackupBuffer.data(), pImgBits, totalBytes);
+	
+		CInverseLogTransformDlg dlg(this);
+		dlg.m_pView = this;
+	
+		if (dlg.DoModal() == IDOK)
+		{
+			pDoc->SetModifiedFlag(TRUE);
+			pDoc->UpdateAllViews(NULL);
+		}
+		else
+		{
+			// Rollback on cancel
+			std::memcpy(pImgBits, m_pixelBackupBuffer.data(), totalBytes);
+			pDoc->UpdateAllViews(NULL);
+		}
+
 }

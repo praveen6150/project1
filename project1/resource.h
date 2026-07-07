@@ -18,6 +18,9 @@
 #define IDD_DIALOG1                     330
 #define IDD_DIALOG_HSV                  331
 #define IDD_DIALOG_HSL                  332
+#define IDD_LOG_TRANSFORM               333
+#define IDD_LOG_TRANSFORM1              334
+#define IDD_INVERSE_LOG_TRANSFORM       334
 #define IDC_EDIT_BRIGHTNESS             1007
 #define IDC_EDIT_CONTRAST               1008
 #define IDC_STATIC_BRIGHT_TEXT          1010
@@ -74,6 +77,12 @@
 #define IDC_SLIDER_LIGHTNESS            1063
 #define IDC_STATIC_LIGHTNESS_TEXT       1064
 #define IDC_STATIC_HSL                  1065
+#define IDC_CHECK_AUTO_CALC             1067
+#define IDC_STATIC_C_LABEL              1068
+#define IDC_SLIDER_C_VALUE              1069
+#define IDC_CHECK_INV_AUTO_CALC         1070
+#define IDC_SLIDER_INV_C_VALUE          1071
+#define IDC_STATIC_INV_C_LABEL          1072
 #define ID_VIEW_FITTOWINDOW             32771
 #define ID_POINT_INVERTCOLORS           32773
 #define ID_Menu                         32778
@@ -144,14 +153,18 @@
 #define ID_POINTPROCESS_HUE32840        32840
 #define ID_POINTPROCESS_CONVERTTOGRAYSCALE 32841
 #define ID_POINTPROCESS_HUE32842        32842
+#define ID_Menu32843                    32843
+#define ID_INTENSITYANDMAPPINGTRANSFORMATION_LOGTRANSFORMATION 32844
+#define ID_POINTPROCESS_HISTOGRAM       32845
+#define ID_INTENSITYANDMAPPINGTRANSFORMATION_INVERSELOGTRANSFORMATION 32846
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        336
-#define _APS_NEXT_COMMAND_VALUE         32843
-#define _APS_NEXT_CONTROL_VALUE         1066
+#define _APS_NEXT_COMMAND_VALUE         32847
+#define _APS_NEXT_CONTROL_VALUE         1073
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

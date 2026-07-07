@@ -175,6 +175,7 @@ protected:
 	DECLARE_MESSAGE_MAP()
 public:
 	afx_msg void OnPointInvertcolors();
+	afx_msg void OnPointprocessInverselogtransformation();
 };
 
 CAboutDlg::CAboutDlg() noexcept : CDialogEx(IDD_ABOUTBOX)
@@ -188,6 +189,7 @@ void CAboutDlg::DoDataExchange(CDataExchange* pDX)
 
 BEGIN_MESSAGE_MAP(CAboutDlg, CDialogEx)
 	//ON_COMMAND(ID_POINT_INVERTCOLORS, &CAboutDlg::OnPointInvertcolors)
+	//ON_COMMAND(ID_INTENSITYANDMAPPINGTRANSFORMATION_INVERSELOGTRANSFORMATION, &CAboutDlg::OnPointprocessInverselogtransformation)
 END_MESSAGE_MAP()
 
 // App command to run the dialog
@@ -198,6 +200,8 @@ void Cproject1App::OnAppAbout()
 }
 
 // Cproject1App message handlers
+
+
 
 
 
