@@ -19,8 +19,9 @@
 #define IDD_DIALOG_HSV                  331
 #define IDD_DIALOG_HSL                  332
 #define IDD_LOG_TRANSFORM               333
-#define IDD_LOG_TRANSFORM1              334
 #define IDD_INVERSE_LOG_TRANSFORM       334
+#define IDD_GRAY_SLICING                335
+#define IDD_PSEUDO_COLOR                336
 #define IDC_EDIT_BRIGHTNESS             1007
 #define IDC_EDIT_CONTRAST               1008
 #define IDC_STATIC_BRIGHT_TEXT          1010
@@ -83,6 +84,14 @@
 #define IDC_CHECK_INV_AUTO_CALC         1070
 #define IDC_SLIDER_INV_C_VALUE          1071
 #define IDC_STATIC_INV_C_LABEL          1072
+#define IDC_SLIDER_SLICE_HIGH           1073
+#define IDC_SLIDER_SLICE_LOW            1075
+#define IDC_STATIC_SLICE_LABEL          1076
+#define IDC_CHECK_PRESERVE_BG           1077
+#define IDC_COMBO_COLOR_MAP             1078
+#define IDC_STATIC_COLOR_DESC           1079
+#define IDC_SLIDER1                     1080
+#define IDC_SLIDER_COLOR_SHIFT          1080
 #define ID_VIEW_FITTOWINDOW             32771
 #define ID_POINT_INVERTCOLORS           32773
 #define ID_Menu                         32778
@@ -157,14 +166,17 @@
 #define ID_INTENSITYANDMAPPINGTRANSFORMATION_LOGTRANSFORMATION 32844
 #define ID_POINTPROCESS_HISTOGRAM       32845
 #define ID_INTENSITYANDMAPPINGTRANSFORMATION_INVERSELOGTRANSFORMATION 32846
+#define ID_INTENSITYANDMAPPINGTRANSFORMATION_GRAYSLICING 32847
+#define ID_POINTPROCESS_COLORANDVISUALIZATION 32848
+#define ID_COLORANDVISUALIZATION_PSEUDO 32849
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        336
-#define _APS_NEXT_COMMAND_VALUE         32847
-#define _APS_NEXT_CONTROL_VALUE         1073
+#define _APS_NEXT_COMMAND_VALUE         32850
+#define _APS_NEXT_CONTROL_VALUE         1081
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

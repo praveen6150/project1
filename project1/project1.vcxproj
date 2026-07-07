@@ -201,6 +201,7 @@
     <ClInclude Include="CContrastStretchDlg.h" />
     <ClInclude Include="CFlipRotateDlg.h" />
     <ClInclude Include="CGammaDlg.h" />
+    <ClInclude Include="CGraySlicingDlg.h" />
     <ClInclude Include="ChildFrm.h" />
     <ClInclude Include="CHistogramDlg.h" />
     <ClInclude Include="CHsiDlg.h" />
@@ -209,6 +210,7 @@
     <ClInclude Include="CInverseLogTransformDlg.h" />
     <ClInclude Include="CLogTransformDlg.h" />
     <ClInclude Include="CPosterizationDlg.h" />
+    <ClInclude Include="CPseudoColorDlg.h" />
     <ClInclude Include="CSolarizationDlg.h" />
     <ClInclude Include="CYcbCrDlg.h" />
     <ClInclude Include="framework.h" />
@@ -227,6 +229,7 @@
     <ClCompile Include="CContrastStretchDlg.cpp" />
     <ClCompile Include="CFlipRotateDlg.cpp" />
     <ClCompile Include="CGammaDlg.cpp" />
+    <ClCompile Include="CGraySlicingDlg.cpp" />
     <ClCompile Include="ChildFrm.cpp" />
     <ClCompile Include="CHistogramDlg.cpp" />
     <ClCompile Include="CHsiDlg.cpp" />
@@ -235,6 +238,7 @@
     <ClCompile Include="CInverseLogTransformDlg.cpp" />
     <ClCompile Include="CLogTransformDlg.cpp" />
     <ClCompile Include="CPosterizationDlg.cpp" />
+    <ClCompile Include="CPseudoColorDlg.cpp" />
     <ClCompile Include="CSolarizationDlg.cpp" />
     <ClCompile Include="CYcbCrDlg.cpp" />
     <ClCompile Include="MainFrm.cpp" />

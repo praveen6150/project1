@@ -31,6 +31,8 @@
 #include "CHslDlg.h"
 #include "CLogTransformDlg.h"
 #include "CInverseLogTransformDlg.h"
+#include "CGraySlicingDlg.h"
+#include "CPseudoColorDlg.h"
 // Cproject1View
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
 
@@ -93,6 +95,8 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_POINTPROCESS_HUE32842, &Cproject1View::OnPointprocessHsl)
 	ON_COMMAND(ID_INTENSITYANDMAPPINGTRANSFORMATION_LOGTRANSFORMATION, &Cproject1View::OnPointprocessLogtransformation)
 	ON_COMMAND(ID_INTENSITYANDMAPPINGTRANSFORMATION_INVERSELOGTRANSFORMATION, &Cproject1View::OnPointprocessInverselogtransformation)
+	ON_COMMAND(ID_INTENSITYANDMAPPINGTRANSFORMATION_GRAYSLICING, &Cproject1View::OnPointprocessGrayslicing)
+	ON_COMMAND(ID_COLORANDVISUALIZATION_PSEUDO, &Cproject1View::OnColorprocessPseudocoloring)
 END_MESSAGE_MAP()
 
 // Cproject1View construction/destruction
@@ -4905,4 +4909,239 @@ void Cproject1View::OnPointprocessInverselogtransformation()
 			pDoc->UpdateAllViews(NULL);
 		}
 
+}
+
+void Cproject1View::OnPointprocessGrayslicing()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull())
+		return;
+
+	int height = pDoc->m_image.GetHeight();
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+	size_t totalBytes = (size_t)absPitch * height;
+
+	m_pixelBackupBuffer.resize(totalBytes);
+	BYTE* pImgBits = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) {
+		pImgBits += pitch * (height - 1);
+	}
+	std::memcpy(m_pixelBackupBuffer.data(), pImgBits, totalBytes);
+
+	CGraySlicingDlg dlg(this);
+	dlg.m_pView = this;
+
+	if (dlg.DoModal() == IDOK)
+	{
+		pDoc->SetModifiedFlag(TRUE);
+		pDoc->UpdateAllViews(NULL);
+	}
+	else
+	{
+		// Restore untouched original on cancel
+		std::memcpy(pImgBits, m_pixelBackupBuffer.data(), totalBytes);
+		pDoc->UpdateAllViews(NULL);
+	}
+}
+
+void Cproject1View::ApplyLiveGraySlicing(int lowVal, int highVal, BOOL bPreserveBG)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull() || m_pixelBackupBuffer.empty())
+		return;
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bpp = pDoc->m_image.GetBPP();
+	int bytesPerPixel = bpp / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+
+	BYTE* pDstBase = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) {
+		pDstBase += pitch * (height - 1);
+	}
+	BYTE* pSrcBase = m_pixelBackupBuffer.data();
+
+	// Generate Fast Look-Up Table for Slicing mapping
+	BYTE lut[256];
+	for (int i = 0; i < 256; i++)
+	{
+		if (i >= lowVal && i <= highVal)
+		{
+			lut[i] = 255; // Sliced range lights up to bright white
+		}
+		else
+		{
+			lut[i] = bPreserveBG ? (BYTE)i : 0; // Keep background original vs drop to black
+		}
+	}
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pSrcRow = pSrcBase + (y * absPitch);
+		BYTE* pDstRow = pDstBase + (y * absPitch);
+
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pSrcPixel = pSrcRow + (x * bytesPerPixel);
+			BYTE* pDstPixel = pDstRow + (x * bytesPerPixel);
+
+			// For RGB/Grayscale applications, evaluate intensity
+			// If dealing with pure color images, calculating gray intensity maps perfectly
+			BYTE intensity = (BYTE)(0.299 * pSrcPixel[2] + 0.587 * pSrcPixel[1] + 0.114 * pSrcPixel[0]);
+
+			if (intensity >= lowVal && intensity <= highVal)
+			{
+				pDstPixel[0] = 255; // B
+				pDstPixel[1] = 255; // G
+				pDstPixel[2] = 255; // R
+			}
+			else
+			{
+				if (bPreserveBG)
+				{
+					pDstPixel[0] = pSrcPixel[0];
+					pDstPixel[1] = pSrcPixel[1];
+					pDstPixel[2] = pSrcPixel[2];
+				}
+				else
+				{
+					pDstPixel[0] = 0;
+					pDstPixel[1] = 0;
+					pDstPixel[2] = 0;
+				}
+			}
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+void Cproject1View::ApplyLivePseudoColor(int mapIndex, int shiftValue)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull() || m_pixelBackupBuffer.empty())
+		return;
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bpp = pDoc->m_image.GetBPP();
+	int bytesPerPixel = bpp / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+
+	BYTE* pDstBase = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) {
+		pDstBase += pitch * (height - 1);
+	}
+	BYTE* pSrcBase = m_pixelBackupBuffer.data();
+
+	// 1. Build Pre-calculated Look-Up Tables for Blue, Green, and Red channels
+	BYTE lutB[256], lutG[256], lutR[256];
+
+	for (int i = 0; i < 256; i++)
+	{
+		if (mapIndex == 0) // JET MAP (Blue -> Cyan -> Green -> Yellow -> Red)
+		{
+			// Red profile
+			if (i < 96)       lutR[i] = 0;
+			else if (i < 160) lutR[i] = (BYTE)(4 * (i - 96));
+			else if (i < 224) lutR[i] = 255;
+			else              lutR[i] = (BYTE)(255 - 4 * (i - 224));
+
+			// Green profile
+			if (i < 32)       lutG[i] = 0;
+			else if (i < 96)  lutG[i] = (BYTE)(4 * (i - 32));
+			else if (i < 160) lutG[i] = 255;
+			else if (i < 224) lutG[i] = (BYTE)(255 - 4 * (i - 160));
+			else              lutG[i] = 0;
+
+			// Blue profile
+			if (i < 32)       lutB[i] = (BYTE)(128 + 4 * i);
+			else if (i < 96)  lutB[i] = 255;
+			else if (i < 160) lutB[i] = (BYTE)(255 - 4 * (i - 96));
+			else              lutB[i] = 0;
+		}
+		else if (mapIndex == 1) // HOT MAP (Black -> Red -> Yellow -> White)
+		{
+			lutR[i] = (i < 96) ? (BYTE)(i * 255 / 95) : 255;
+			lutG[i] = (i < 96) ? 0 : ((i < 192) ? (BYTE)((i - 96) * 255 / 95) : 255);
+			lutB[i] = (i < 192) ? 0 : (BYTE)((i - 192) * 255 / 63);
+		}
+		else // COOL MAP (Cyan to Magenta gradient)
+		{
+			lutR[i] = (BYTE)i;
+			lutG[i] = (BYTE)(255 - i);
+			lutB[i] = 255;
+		}
+	}
+
+	// 2. Process image pixel channels using our maps
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pSrcRow = pSrcBase + (y * absPitch);
+		BYTE* pDstRow = pDstBase + (y * absPitch);
+
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pSrcPixel = pSrcRow + (x * bytesPerPixel);
+			BYTE* pDstPixel = pDstRow + (x * bytesPerPixel);
+
+			// Calculate overall gray intensity step first to accurately map colors
+			BYTE gray = (BYTE)(0.299 * pSrcPixel[2] + 0.587 * pSrcPixel[1] + 0.114 * pSrcPixel[0]);
+
+			// Apply the slider shift value using modulo arithmetic to cycle smoothly
+			int shiftedColorIndex = (gray + shiftValue) % 256;
+
+			// Assign false color lookups directly to image memory bounds
+			pDstPixel[0] = lutB[shiftedColorIndex]; // Blue
+			pDstPixel[1] = lutG[shiftedColorIndex]; // Green
+			pDstPixel[2] = lutR[shiftedColorIndex]; // Red
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+// Ensure proper spacing and separate function definitions
+void Cproject1View::OnColorprocessPseudocoloring()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull())
+		return;
+
+	int height = pDoc->m_image.GetHeight();
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+	size_t totalBytes = (size_t)absPitch * height;
+
+	m_pixelBackupBuffer.resize(totalBytes);
+	BYTE* pImgBits = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) {
+		pImgBits += pitch * (height - 1);
+	}
+	std::memcpy(m_pixelBackupBuffer.data(), pImgBits, totalBytes);
+
+	CPseudoColorDlg dlg(this);
+	dlg.m_pView = this;
+
+	if (dlg.DoModal() == IDOK)
+	{
+		pDoc->SetModifiedFlag(TRUE);
+		pDoc->UpdateAllViews(NULL);
+	}
+	else
+	{
+		// Restore untouched original on user cancel
+		std::memcpy(pImgBits, m_pixelBackupBuffer.data(), totalBytes);
+		pDoc->UpdateAllViews(NULL);
+	}
 }

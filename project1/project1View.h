@@ -132,6 +132,12 @@ public:
 	afx_msg void ApplyLiveLog(double cVal);
 	afx_msg void ApplyLiveInverseLog(double cVal);
 	afx_msg void OnPointprocessInverselogtransformation();
+	afx_msg void OnPointprocessGrayslicing();
+	afx_msg void ApplyLiveGraySlicing(int lowVal, int highVal, BOOL bPreserveBG);
+	//void ApplyLivePseudoColor(int mapIndex);
+	//afx_msg void ApplyLivePseudoColor(int mapIndex);
+	afx_msg void ApplyLivePseudoColor(int mapIndex, int shiftValue = 0);
+	afx_msg void OnColorprocessPseudocoloring();
 };
 
 #ifndef _DEBUG  // debug version in project1View.cpp
