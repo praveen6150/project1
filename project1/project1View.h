@@ -123,7 +123,6 @@ public:
 	afx_msg void Rotate270();
 	afx_msg void SetPreviewRotationAngle(double angle, BOOL bActive);
 	afx_msg void DrawArbitraryRotationPreview(CDC* pDC, CImage& srcImg, double angleDegrees);
-	
 	afx_msg void OnColorsHsvadjustment();
 	afx_msg void OnPointprocessConverttograyscale();
 	afx_msg void OnPointprocessHsl();
@@ -134,8 +133,6 @@ public:
 	afx_msg void OnPointprocessInverselogtransformation();
 	afx_msg void OnPointprocessGrayslicing();
 	afx_msg void ApplyLiveGraySlicing(int lowVal, int highVal, BOOL bPreserveBG);
-	//void ApplyLivePseudoColor(int mapIndex);
-	//afx_msg void ApplyLivePseudoColor(int mapIndex);
 	afx_msg void ApplyLivePseudoColor(int mapIndex, int shiftValue = 0);
 	afx_msg void OnColorprocessPseudocoloring();
 };
