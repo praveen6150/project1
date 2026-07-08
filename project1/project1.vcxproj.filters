@@ -96,6 +96,9 @@
     <ClInclude Include="COtsuThresholdDlg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="CBinaryThresholdDlg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="project1.cpp">
@@ -168,6 +171,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="COtsuThresholdDlg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CBinaryThresholdDlg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

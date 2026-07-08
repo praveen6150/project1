@@ -195,6 +195,7 @@
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="CBinaryThresholdDlg.h" />
     <ClInclude Include="CBitPlaneDlg.h" />
     <ClInclude Include="CBrightnessContrastDlg.h" />
     <ClInclude Include="CColorBalanceDlg.h" />
@@ -224,6 +225,7 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CBinaryThresholdDlg.cpp" />
     <ClCompile Include="CBitPlaneDlg.cpp" />
     <ClCompile Include="CBrightnessContrastDlg.cpp" />
     <ClCompile Include="CColorBalanceDlg.cpp" />

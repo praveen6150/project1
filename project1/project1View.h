@@ -140,6 +140,8 @@ public:
 	afx_msg void ApplyOtsuThresholdWithValue(int thresholdValue);
 	afx_msg void ApplyOtsuThreshold(bool preview);
 	afx_msg void RestoreOriginalPixels();
+	afx_msg void OnPointprocessBinarythreshold();
+	afx_msg void ApplyBinaryThreshold(int thresholdValue);
 };
 
 #ifndef _DEBUG  // debug version in project1View.cpp

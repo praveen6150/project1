@@ -34,7 +34,7 @@
 #include "CGraySlicingDlg.h"
 #include "CPseudoColorDlg.h"
 #include "COtsuThresholdDlg.h"
-// Cproject1View
+#include "CBinaryThresholdDlg.h"
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
 
 BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
@@ -99,6 +99,7 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_INTENSITYANDMAPPINGTRANSFORMATION_GRAYSLICING, &Cproject1View::OnPointprocessGrayslicing)
 	ON_COMMAND(ID_COLORANDVISUALIZATION_PSEUDO, &Cproject1View::OnColorprocessPseudocoloring)
 	ON_COMMAND(ID_POINTPROCESS_OTSUTHRESHOLD, &Cproject1View::OnPointprocessOtsuthreshold)
+	ON_COMMAND(ID_POINTPROCESS_BINARYTHRESHOLD, &Cproject1View::OnPointprocessBinarythreshold)
 END_MESSAGE_MAP()
 
 // Cproject1View construction/destruction
@@ -5321,6 +5322,91 @@ void Cproject1View::RestoreOriginalPixels()
 	}
 
 	std::memcpy(pImgBits, m_pixelBackupBuffer.data(), totalBytes);
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+void Cproject1View::OnPointprocessBinarythreshold()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull())
+		return;
+
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp / 8 < 3)
+	{
+		AfxMessageBox(_T("This feature requires a 24-bit or 32-bit color image."));
+		return;
+	}
+
+	int height = pDoc->m_image.GetHeight();
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+	size_t totalBytes = (size_t)absPitch * height;
+
+	// Back up original pixels so Cancel can restore them
+	m_pixelBackupBuffer.resize(totalBytes);
+	BYTE* pImgBits = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pImgBits += pitch * (height - 1);
+	std::memcpy(m_pixelBackupBuffer.data(), pImgBits, totalBytes);
+
+	CBinaryThresholdDlg dlg(this);
+	dlg.m_pView = this;
+
+	if (dlg.DoModal() == IDOK)
+	{
+		pDoc->SetModifiedFlag(TRUE);
+		pDoc->UpdateAllViews(NULL);
+	}
+	else
+	{
+		// Restore original on Cancel
+		std::memcpy(pImgBits, m_pixelBackupBuffer.data(), totalBytes);
+		pDoc->UpdateAllViews(NULL);
+	}
+}
+
+// Applies binary thresholding at the given user-selected value, reading from
+// the untouched backup and writing to the live doc bits, so repeated slider
+// drags never compound on top of an already-thresholded image.
+void Cproject1View::ApplyBinaryThreshold(int thresholdValue)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull() || m_pixelBackupBuffer.empty())
+		return;
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bytesPerPixel = pDoc->m_image.GetBPP() / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+
+	BYTE* pDstBase = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pDstBase += pitch * (height - 1);
+	BYTE* pSrcBase = m_pixelBackupBuffer.data();
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pSrcRow = pSrcBase + (y * absPitch);
+		BYTE* pDstRow = pDstBase + (y * absPitch);
+
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pSrcPixel = pSrcRow + (x * bytesPerPixel);
+			BYTE* pDstPixel = pDstRow + (x * bytesPerPixel);
+
+			BYTE gray = (BYTE)(0.299 * pSrcPixel[2] + 0.587 * pSrcPixel[1] + 0.114 * pSrcPixel[0]);
+
+			// This is the core "if/else" logic the feature description asks for
+			BYTE binary = (gray > thresholdValue) ? 255 : 0;
+
+			pDstPixel[0] = binary; // B
+			pDstPixel[1] = binary; // G
+			pDstPixel[2] = binary; // R
+		}
+	}
 
 	Invalidate(FALSE);
 	UpdateWindow();
