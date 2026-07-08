@@ -176,6 +176,7 @@ protected:
 public:
 	afx_msg void OnPointInvertcolors();
 	afx_msg void OnPointprocessInverselogtransformation();
+	afx_msg void OnPointprocessOtsuthreshold();
 };
 
 CAboutDlg::CAboutDlg() noexcept : CDialogEx(IDD_ABOUTBOX)
@@ -190,6 +191,7 @@ void CAboutDlg::DoDataExchange(CDataExchange* pDX)
 BEGIN_MESSAGE_MAP(CAboutDlg, CDialogEx)
 	//ON_COMMAND(ID_POINT_INVERTCOLORS, &CAboutDlg::OnPointInvertcolors)
 	//ON_COMMAND(ID_INTENSITYANDMAPPINGTRANSFORMATION_INVERSELOGTRANSFORMATION, &CAboutDlg::OnPointprocessInverselogtransformation)
+	ON_COMMAND(ID_POINTPROCESS_OTSUTHRESHOLD, &CAboutDlg::OnPointprocessOtsuthreshold)
 END_MESSAGE_MAP()
 
 // App command to run the dialog
@@ -201,9 +203,7 @@ void Cproject1App::OnAppAbout()
 
 // Cproject1App message handlers
 
-
-
-
-
-
-
+void CAboutDlg::OnPointprocessOtsuthreshold()
+{
+	// TODO: Add your command handler code here
+}

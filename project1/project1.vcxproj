@@ -209,6 +209,7 @@
     <ClInclude Include="CHsvDlg.h" />
     <ClInclude Include="CInverseLogTransformDlg.h" />
     <ClInclude Include="CLogTransformDlg.h" />
+    <ClInclude Include="COtsuThresholdDlg.h" />
     <ClInclude Include="CPosterizationDlg.h" />
     <ClInclude Include="CPseudoColorDlg.h" />
     <ClInclude Include="CSolarizationDlg.h" />
@@ -237,6 +238,7 @@
     <ClCompile Include="CHsvDlg.cpp" />
     <ClCompile Include="CInverseLogTransformDlg.cpp" />
     <ClCompile Include="CLogTransformDlg.cpp" />
+    <ClCompile Include="COtsuThresholdDlg.cpp" />
     <ClCompile Include="CPosterizationDlg.cpp" />
     <ClCompile Include="CPseudoColorDlg.cpp" />
     <ClCompile Include="CSolarizationDlg.cpp" />

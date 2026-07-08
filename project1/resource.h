@@ -21,6 +21,8 @@
 #define IDD_GRAY_SLICING                335
 #define IDD_PSEUDO_COLOR                336
 #define IDD_DIALOG2                     337
+#define IDD_DIALOG3                     338
+#define IDD_OTSU_THRESHOLD              338
 #define IDC_EDIT_BRIGHTNESS             1007
 #define IDC_EDIT_CONTRAST               1008
 #define IDC_STATIC_BRIGHT_TEXT          1010
@@ -91,6 +93,8 @@
 #define IDC_STATIC_COLOR_DESC           1079
 #define IDC_SLIDER_COLOR_SHIFT          1080
 #define IDC_STATIC_SLIDER_VALUE         1082
+#define IDC_STATIC_OTSU_VALUE           1083
+#define IDC_CHECK_OTSU_PREVIEW          1084
 #define ID_VIEW_FITTOWINDOW             32771
 #define ID_POINT_INVERTCOLORS           32773
 #define ID_Menu                         32778
@@ -164,14 +168,16 @@
 #define ID_POINTPROCESS_PIECEWISE       32852
 #define ID_POINTPROCESS_BASICINTENSITYTRANSFORMATIONS 32853
 #define ID_POINTPROCESS_GRAYSCALECONVERSION 32854
+#define ID_HISTOGRAMPROCESSING_OTSU     32855
+#define ID_POINTPROCESS_OTSUTHRESHOLD   32856
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        338
-#define _APS_NEXT_COMMAND_VALUE         32855
-#define _APS_NEXT_CONTROL_VALUE         1083
+#define _APS_NEXT_RESOURCE_VALUE        340
+#define _APS_NEXT_COMMAND_VALUE         32857
+#define _APS_NEXT_CONTROL_VALUE         1085
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

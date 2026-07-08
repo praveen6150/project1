@@ -33,6 +33,7 @@
 #include "CInverseLogTransformDlg.h"
 #include "CGraySlicingDlg.h"
 #include "CPseudoColorDlg.h"
+#include "COtsuThresholdDlg.h"
 // Cproject1View
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
 
@@ -97,6 +98,7 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_INTENSITYANDMAPPINGTRANSFORMATION_INVERSELOGTRANSFORMATION, &Cproject1View::OnPointprocessInverselogtransformation)
 	ON_COMMAND(ID_INTENSITYANDMAPPINGTRANSFORMATION_GRAYSLICING, &Cproject1View::OnPointprocessGrayslicing)
 	ON_COMMAND(ID_COLORANDVISUALIZATION_PSEUDO, &Cproject1View::OnColorprocessPseudocoloring)
+	ON_COMMAND(ID_POINTPROCESS_OTSUTHRESHOLD, &Cproject1View::OnPointprocessOtsuthreshold)
 END_MESSAGE_MAP()
 
 // Cproject1View construction/destruction
@@ -5144,4 +5146,182 @@ void Cproject1View::OnColorprocessPseudocoloring()
 		std::memcpy(pImgBits, m_pixelBackupBuffer.data(), totalBytes);
 		pDoc->UpdateAllViews(NULL);
 	}
+}
+
+
+// Computes the optimal threshold using Otsu's method given a 256-bin histogram
+int Cproject1View::ComputeOtsuThreshold(const std::vector<int>& histogram, int totalPixels)
+{
+	double sumAll = 0;
+	for (int i = 0; i < 256; i++)
+		sumAll += i * histogram[i];
+
+	double sumBackground = 0;
+	int weightBackground = 0;
+	int weightForeground = 0;
+
+	double maxVariance = 0;
+	int optimalThreshold = 0;
+
+	for (int t = 0; t < 256; t++)
+	{
+		weightBackground += histogram[t];
+		if (weightBackground == 0) continue;
+
+		weightForeground = totalPixels - weightBackground;
+		if (weightForeground == 0) break;
+
+		sumBackground += (double)(t * histogram[t]);
+
+		double meanBackground = sumBackground / weightBackground;
+		double meanForeground = (sumAll - sumBackground) / weightForeground;
+
+		// Between-class variance — Otsu's criterion to maximize
+		double betweenVariance = (double)weightBackground * (double)weightForeground *
+			(meanBackground - meanForeground) * (meanBackground - meanForeground);
+
+		if (betweenVariance > maxVariance)
+		{
+			maxVariance = betweenVariance;
+			optimalThreshold = t;
+		}
+	}
+
+	return optimalThreshold;
+}
+
+void Cproject1View::OnPointprocessOtsuthreshold()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull())
+		return;
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bpp = pDoc->m_image.GetBPP();
+	int bytesPerPixel = bpp / 8;
+
+	if (bytesPerPixel < 3)
+	{
+		AfxMessageBox(_T("This feature requires a 24-bit or 32-bit color image."));
+		return;
+	}
+
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+	size_t totalBytes = (size_t)absPitch * height;
+
+	// Back up original pixels so Cancel can restore them, same pattern as Pseudo-Color
+	m_pixelBackupBuffer.resize(totalBytes);
+	BYTE* pImgBits = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pImgBits += pitch * (height - 1);
+	std::memcpy(m_pixelBackupBuffer.data(), pImgBits, totalBytes);
+
+	// Build the grayscale histogram from the backup (the untouched original)
+	std::vector<int> histogram(256, 0);
+	BYTE* pSrcBase = m_pixelBackupBuffer.data();
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = pSrcBase + (y * absPitch);
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pPixel = pRow + (x * bytesPerPixel);
+			BYTE gray = (BYTE)(0.299 * pPixel[2] + 0.587 * pPixel[1] + 0.114 * pPixel[0]);
+			histogram[gray]++;
+		}
+	}
+
+	int totalPixels = width * height;
+	int threshold = ComputeOtsuThreshold(histogram, totalPixels);
+
+	// Show the preview dialog with the computed value
+	COtsuThresholdDlg dlg(this);
+	dlg.m_pView = this;
+	dlg.m_computedThreshold = threshold;
+
+	// Apply live preview immediately using the computed threshold
+	ApplyOtsuThresholdWithValue(threshold);
+
+	if (dlg.DoModal() == IDOK)
+	{
+		pDoc->SetModifiedFlag(TRUE);
+		pDoc->UpdateAllViews(NULL);
+	}
+	else
+	{
+		// Restore original on Cancel
+		std::memcpy(pImgBits, m_pixelBackupBuffer.data(), totalBytes);
+		pDoc->UpdateAllViews(NULL);
+	}
+}
+
+// Applies binary thresholding at the given value directly to the doc's live bits
+void Cproject1View::ApplyOtsuThresholdWithValue(int thresholdValue)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull() || m_pixelBackupBuffer.empty())
+		return;
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bpp = pDoc->m_image.GetBPP();
+	int bytesPerPixel = bpp / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+
+	BYTE* pDstBase = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pDstBase += pitch * (height - 1);
+	BYTE* pSrcBase = m_pixelBackupBuffer.data();
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pSrcRow = pSrcBase + (y * absPitch);
+		BYTE* pDstRow = pDstBase + (y * absPitch);
+
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pSrcPixel = pSrcRow + (x * bytesPerPixel);
+			BYTE* pDstPixel = pDstRow + (x * bytesPerPixel);
+
+			BYTE gray = (BYTE)(0.299 * pSrcPixel[2] + 0.587 * pSrcPixel[1] + 0.114 * pSrcPixel[0]);
+			BYTE binary = (gray > thresholdValue) ? 255 : 0;
+
+			pDstPixel[0] = binary; // B
+			pDstPixel[1] = binary; // G
+			pDstPixel[2] = binary; // R
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+void Cproject1View::RestoreOriginalPixels()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull() || m_pixelBackupBuffer.empty())
+		return;
+
+	int height = pDoc->m_image.GetHeight();
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+	size_t totalBytes = (size_t)absPitch * height;
+
+	// Safety check: buffer must match the image's current byte size,
+	// otherwise a stale/mismatched backup could corrupt memory
+	if (m_pixelBackupBuffer.size() != totalBytes)
+		return;
+
+	BYTE* pImgBits = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) {
+		pImgBits += pitch * (height - 1);
+	}
+
+	std::memcpy(pImgBits, m_pixelBackupBuffer.data(), totalBytes);
+
+	Invalidate(FALSE);
+	UpdateWindow();
 }

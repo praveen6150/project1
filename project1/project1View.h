@@ -52,6 +52,7 @@ protected:
 	void RotateImage270(CImage& img);
 	void RotateArbitrary(double angleDegrees);
 	void RotateImageArbitrary(CImage& img, double angleDegrees);
+	int ComputeOtsuThreshold(const std::vector<int>& histogram, int totalPixels);
 
 protected:
 	//afx_msg void OnColorsHsvadjustment();
@@ -135,6 +136,10 @@ public:
 	afx_msg void ApplyLiveGraySlicing(int lowVal, int highVal, BOOL bPreserveBG);
 	afx_msg void ApplyLivePseudoColor(int mapIndex, int shiftValue = 0);
 	afx_msg void OnColorprocessPseudocoloring();
+	afx_msg void OnPointprocessOtsuthreshold();
+	afx_msg void ApplyOtsuThresholdWithValue(int thresholdValue);
+	afx_msg void ApplyOtsuThreshold(bool preview);
+	afx_msg void RestoreOriginalPixels();
 };
 
 #ifndef _DEBUG  // debug version in project1View.cpp
