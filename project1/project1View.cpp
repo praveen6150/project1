@@ -36,6 +36,7 @@
 #include "COtsuThresholdDlg.h"
 #include "CBinaryThresholdDlg.h"
 #include "CLevelsAdjustmentDlg.h"
+#include "CSigmoidContrastDlg.h"
 
 
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
@@ -104,6 +105,7 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_POINTPROCESS_OTSUTHRESHOLD, &Cproject1View::OnPointprocessOtsuthreshold)
 	ON_COMMAND(ID_POINTPROCESS_BINARYTHRESHOLD, &Cproject1View::OnPointprocessBinarythreshold)
 	ON_COMMAND(ID_BASICINTENSITYTRANSFORMATIONS_LEVELADJUSTMENT, &Cproject1View::OnPointprocessLevelsadjustment)
+	ON_COMMAND(ID_POINTPROCESS_SIGMOIDCONTRAST, &Cproject1View::OnPointprocessSigmoidcontrast)
 END_MESSAGE_MAP()
 
 // Cproject1View construction/destruction
@@ -5520,3 +5522,110 @@ void Cproject1View::ApplyLevelsAdjustment(int blackPoint, int whitePoint, double
 	Invalidate(FALSE);
 	UpdateWindow();
 }
+
+
+void Cproject1View::OnPointprocessSigmoidcontrast()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull())
+		return;
+
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp / 8 < 3)
+	{
+		AfxMessageBox(_T("This feature requires a 24-bit or 32-bit color image."));
+		return;
+	}
+
+	int height = pDoc->m_image.GetHeight();
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+	size_t totalBytes = (size_t)absPitch * height;
+
+	m_pixelBackupBuffer.resize(totalBytes);
+	BYTE* pImgBits = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pImgBits += pitch * (height - 1);
+	std::memcpy(m_pixelBackupBuffer.data(), pImgBits, totalBytes);
+
+	CSigmoidContrastDlg dlg(this);
+	dlg.m_pView = this;
+
+	if (dlg.DoModal() == IDOK)
+	{
+		pDoc->SetModifiedFlag(TRUE);
+		pDoc->UpdateAllViews(NULL);
+	}
+	else
+	{
+		std::memcpy(pImgBits, m_pixelBackupBuffer.data(), totalBytes);
+		pDoc->UpdateAllViews(NULL);
+	}
+}
+
+ //Applies an S-curve intensity mapping using gain (steepness) and midpoint
+ //(curve center), rescaled so the endpoints always anchor to pure black/white.
+
+
+void Cproject1View::ApplySigmoidContrast(double gain, int midpoint)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull() || m_pixelBackupBuffer.empty())
+		return;
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bytesPerPixel = pDoc->m_image.GetBPP() / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+
+	BYTE* pDstBase = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pDstBase += pitch * (height - 1);
+	BYTE* pSrcBase = m_pixelBackupBuffer.data();
+
+	double midNorm = midpoint / 255.0; // midpoint as 0.0-1.0
+
+	// Precompute the sigmoid at the two extremes for endpoint rescaling
+	double fAt0 = 1.0 / (1.0 + exp(gain * midNorm));
+	double fAt1 = 1.0 / (1.0 + exp(-gain * (1.0 - midNorm)));
+	double denom = fAt1 - fAt0;
+	if (std::abs(denom) < 1e-6) denom = 1e-6; // safety guard against divide-by-zero
+
+	BYTE lut[256];
+	for (int i = 0; i < 256; i++)
+	{
+		double x = i / 255.0;
+		double fx = 1.0 / (1.0 + exp(-gain * (x - midNorm)));
+
+		double output = (fx - fAt0) / denom;
+
+		if (output < 0.0) output = 0.0;
+		if (output > 1.0) output = 1.0;
+
+		lut[i] = (BYTE)(output * 255.0 + 0.5); // scale back to 0-255, round
+	}
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pSrcRow = pSrcBase + (y * absPitch);
+		BYTE* pDstRow = pDstBase + (y * absPitch);
+
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pSrcPixel = pSrcRow + (x * bytesPerPixel);
+			BYTE* pDstPixel = pDstRow + (x * bytesPerPixel);
+
+			// Apply to each channel independently — preserves color,
+			// same principle as your Levels Adjustment feature
+			pDstPixel[0] = lut[pSrcPixel[0]]; // B
+			pDstPixel[1] = lut[pSrcPixel[1]]; // G
+			pDstPixel[2] = lut[pSrcPixel[2]]; // R
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+

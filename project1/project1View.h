@@ -143,7 +143,9 @@ public:
 	afx_msg void OnPointprocessBinarythreshold();
 	afx_msg void ApplyBinaryThreshold(int thresholdValue);
 	afx_msg void ApplyLevelsAdjustment(int blackPoint, int whitePoint, double gamma);
+	afx_msg void ApplySigmoidContrast(double gain, int midpoint);
 	afx_msg void OnPointprocessLevelsadjustment();
+	afx_msg void OnPointprocessSigmoidcontrast();
 };
 
 #ifndef _DEBUG  // debug version in project1View.cpp
