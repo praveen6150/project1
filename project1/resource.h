@@ -26,6 +26,8 @@
 #define IDD_LEVELS_ADJUSTMENT           344
 #define IDD_SIGMOID_CONTRAST            346
 #define IDD_SEPIA_TONE                  349
+#define IDD_DIALOG3                     351
+#define IDD_CURVES_ADJUSTMENT           351
 #define IDC_EDIT_BRIGHTNESS             1007
 #define IDC_EDIT_CONTRAST               1008
 #define IDC_STATIC_BRIGHT_TEXT          1010
@@ -51,6 +53,7 @@
 #define IDC_SLIDER_GAMMA                1030
 #define IDC_STATIC_GAMMA_VAL            1031
 #define IDC_BUTTON1                     1032
+#define IDC_BUTTON_RESET_CURVE          1032
 #define IDC_BTN_ALL                     1033
 #define IDC_SLIDER_SOLAR_INTENSITY      1034
 #define IDC_STATIC_SOLAR_VAL            1035
@@ -113,6 +116,7 @@
 #define IDC_STATIC_SIGMOID_GAIN         1093
 #define IDC_STATIC_SIGMOID_MIDPOINT     1094
 #define IDC_STATIC_SEPIA_INTENSITY      1095
+#define IDC_STATIC_CURVE_AREA           1096
 #define ID_VIEW_FITTOWINDOW             32771
 #define ID_POINT_INVERTCOLORS           32773
 #define ID_Menu                         32778
@@ -196,14 +200,16 @@
 #define ID_POINTPROCESS_SIGMOIDCONTRAST 32862
 #define ID_SPECIAL_SEPIATONE            32863
 #define ID_POINTPROCESS_SEPIATONE       32864
+#define ID_BASICINTENSITYTRANSFORMATIONS_CURVESADJUSTMENT 32865
+#define ID_POINTPROCESS_CURVESADJUSTMENT 32866
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        351
-#define _APS_NEXT_COMMAND_VALUE         32865
-#define _APS_NEXT_CONTROL_VALUE         1096
+#define _APS_NEXT_RESOURCE_VALUE        353
+#define _APS_NEXT_COMMAND_VALUE         32867
+#define _APS_NEXT_CONTROL_VALUE         1097
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif
