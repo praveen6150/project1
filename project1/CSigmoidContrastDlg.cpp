@@ -56,7 +56,7 @@ void CSigmoidContrastDlg::UpdateLabelsAndPreview()
 	CSliderCtrl* pGain = (CSliderCtrl*)GetDlgItem(IDC_SLIDER_SIGMOID_GAIN);
 	CSliderCtrl* pMid = (CSliderCtrl*)GetDlgItem(IDC_SLIDER_SIGMOID_MIDPOINT);
 
-	int gainPos = pGain ? pGain->GetPos() : 50;
+	int gainPos = pGain ? pGain->GetPos() : 50; 
 	int midPos = pMid ? pMid->GetPos() : 128;
 
 	double gainValue = gainPos / 10.0; // convert slider int back to real gain
