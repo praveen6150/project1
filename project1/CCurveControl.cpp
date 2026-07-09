@@ -44,11 +44,13 @@ CPoint CCurveControl::ClientToCurve(CPoint clientPt)
 {
 	CRect rect;
 	GetClientRect(&rect);
+	int stripThickness = 12;
 
-	// Curve space: x=0 is left edge, x=255 is right edge
-	//              y=0 is BOTTOM edge, y=255 is TOP edge (graphs read bottom-up)
-	int cx = (int)((double)clientPt.x / rect.Width() * 255.0);
-	int cy = (int)((1.0 - (double)clientPt.y / rect.Height()) * 255.0);
+	int plotWidth = rect.Width() - stripThickness;
+	int plotHeight = rect.Height() - stripThickness;
+
+	int cx = (int)((double)(clientPt.x - stripThickness) / plotWidth * 255.0);
+	int cy = (int)((1.0 - (double)clientPt.y / plotHeight) * 255.0);
 
 	cx = (std::max)(0, (std::min)(cx, 255));
 	cy = (std::max)(0, (std::min)(cy, 255));
@@ -60,9 +62,13 @@ CPoint CCurveControl::CurveToClient(CPoint curvePt)
 {
 	CRect rect;
 	GetClientRect(&rect);
+	int stripThickness = 12;
 
-	int px = (int)((double)curvePt.x / 255.0 * rect.Width());
-	int py = (int)((1.0 - (double)curvePt.y / 255.0) * rect.Height());
+	int plotWidth = rect.Width() - stripThickness;
+	int plotHeight = rect.Height() - stripThickness;
+
+	int px = stripThickness + (int)((double)curvePt.x / 255.0 * plotWidth);
+	int py = (int)((1.0 - (double)curvePt.y / 255.0) * plotHeight);
 
 	return CPoint(px, py);
 }
@@ -159,62 +165,94 @@ void CCurveControl::OnPaint()
 	CRect rect;
 	GetClientRect(&rect);
 
-	// 1. SMOOTH BACKGROUND GRADIENT
-	for (int y = 0; y < rect.Height(); y++)
+	// Space at the bottom and left for our visual color gradient strips
+	int stripThickness = 12;
+	CRect plotRect = rect;
+	plotRect.bottom -= stripThickness;
+	plotRect.left += stripThickness;
+
+	// 1. RECTIFIED: CLEAN WHITE CANVAS
+	dc.FillSolidRect(&plotRect, RGB(255, 255, 255));
+
+	// 2. HORIZONTAL INPUT GRADIENT STRIP (Bottom: Black to White)
+	for (int x = plotRect.left; x < plotRect.right; x++)
 	{
-		int intensity = (int)((1.0 - (double)y / rect.Height()) * 255.0);
+		int intensity = (int)(((double)(x - plotRect.left) / plotRect.Width()) * 255.0);
 		intensity = (std::max)(0, (std::min)(intensity, 255));
-
-		COLORREF gradColor = RGB(intensity, intensity, intensity);
-		dc.FillSolidRect(0, y, rect.Width(), 1, gradColor);
+		dc.FillSolidRect(x, plotRect.bottom, 1, stripThickness, RGB(intensity, intensity, intensity));
 	}
 
-	// 2. GRID LINES
-	CPen gridPen(PS_SOLID, 1, RGB(128, 128, 128));
-	CPen* pOldPen = dc.SelectObject(&gridPen);
-	for (int i = 0; i <= 255; i += 32)
+	// 3. VERTICAL OUTPUT GRADIENT STRIP (Left: Black to White going up)
+	for (int y = plotRect.top; y < plotRect.bottom; y++)
 	{
-		CPoint top = CurveToClient(CPoint(i, 255));
-		dc.MoveTo(top.x, 0);
-		dc.LineTo(top.x, rect.Height());
+		int intensity = (int)((1.0 - (double)(y - plotRect.top) / plotRect.Height()) * 255.0);
+		intensity = (std::max)(0, (std::min)(intensity, 255));
+		dc.FillSolidRect(0, y, stripThickness, 1, RGB(intensity, intensity, intensity));
+	}
 
-		CPoint left = CurveToClient(CPoint(0, i));
-		dc.MoveTo(0, left.y);
-		dc.LineTo(rect.Width(), left.y);
+	// 4. SOFT NEUTRAL GRAY GRID LINES (Perfect visibility on white)
+	CPen gridPen(PS_SOLID, 1, RGB(220, 220, 220));
+	CPen* pOldPen = dc.SelectObject(&gridPen);
+	for (int i = 32; i < 255; i += 32)
+	{
+		// Vertical grid lines
+		int px = plotRect.left + (int)((double)i / 255.0 * plotRect.Width());
+		dc.MoveTo(px, plotRect.top);
+		dc.LineTo(px, plotRect.bottom);
+
+		// Horizontal grid lines
+		int py = plotRect.top + (int)((1.0 - (double)i / 255.0) * plotRect.Height());
+		dc.MoveTo(plotRect.left, py);
+		dc.LineTo(plotRect.right, py);
 	}
 	dc.SelectObject(pOldPen);
 
-	// 3. DIAGONAL REFERENCE LINE
-	CPen refPen(PS_DOT, 1, RGB(255, 128, 0));
+	// 5. SEAMLESS DASHED REFERENCE LINE
+	CPen refPen(PS_DOT, 1, RGB(160, 160, 160));
 	pOldPen = dc.SelectObject(&refPen);
-	CPoint refStart = CurveToClient(CPoint(0, 0));
-	CPoint refEnd = CurveToClient(CPoint(255, 255));
-	dc.MoveTo(refStart);
-	dc.LineTo(refEnd);
+	int xStart = plotRect.left;
+	int yStart = plotRect.bottom;
+	int xEnd = plotRect.right;
+	int yEnd = plotRect.top;
+	dc.MoveTo(xStart, yStart);
+	dc.LineTo(xEnd, yEnd);
 	dc.SelectObject(pOldPen);
 
-	// 4. DRAW INTERPOLATED CURVE
+	// 6. DEEP ROYAL BLUE TONE CURVE (Stands out sharply on a white grid)
 	BYTE lut[256];
 	GetLUT(lut);
 
-	CPen curvePen(PS_SOLID, 3, RGB(0, 220, 255));
+	CPen curvePen(PS_SOLID, 3, RGB(0, 102, 204));
 	pOldPen = dc.SelectObject(&curvePen);
-	CPoint prevPt = CurveToClient(CPoint(0, lut[0]));
-	dc.MoveTo(prevPt);
-	for (int i = 1; i < 256; i++)
+
+	for (int i = 0; i < 256; i++)
 	{
-		CPoint pt = CurveToClient(CPoint(i, lut[i]));
-		dc.LineTo(pt);
+		int px = plotRect.left + (int)((double)i / 255.0 * plotRect.Width());
+		int py = plotRect.top + (int)((1.0 - (double)lut[i] / 255.0) * plotRect.Height());
+
+		if (i == 0)
+			dc.MoveTo(px, py);
+		else
+			dc.LineTo(px, py);
 	}
 	dc.SelectObject(pOldPen);
 
-	// 5. DRAW CONTROL HANDLE POINTS
+	// 7. VIBRANT RED HANDLE POINTS WITH BORDERS
 	for (size_t i = 0; i < m_points.size(); i++)
 	{
-		CPoint screenPt = CurveToClient(m_points[i]);
-		CBrush brush(RGB(255, 230, 0));
+		int px = plotRect.left + (int)((double)m_points[i].x / 255.0 * plotRect.Width());
+		int py = plotRect.top + (int)((1.0 - (double)m_points[i].y / 255.0) * plotRect.Height());
+
+		CBrush brush(RGB(255, 50, 50)); // Classic crisp red handle dots
 		CBrush* pOldBrush = dc.SelectObject(&brush);
-		dc.Ellipse(screenPt.x - 5, screenPt.y - 5, screenPt.x + 5, screenPt.y + 5);
+
+		// Drawing a neat circle handle
+		CPen borderPen(PS_SOLID, 1, RGB(0, 0, 0));
+		CPen* pOldBpen = dc.SelectObject(&borderPen);
+
+		dc.Ellipse(px - 5, py - 5, px + 5, py + 5);
+
+		dc.SelectObject(pOldBpen);
 		dc.SelectObject(pOldBrush);
 	}
 }

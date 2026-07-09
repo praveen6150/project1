@@ -37,7 +37,10 @@ BOOL CCurvesAdjustmentDlg::OnInitDialog()
 	m_curveControl.SubclassDlgItem(IDC_STATIC_CURVE_AREA, this);
 	m_curveControl.SetChangeCallback(&CCurvesAdjustmentDlg::OnCurveChanged, this);
 
-	ApplyCurrentCurve(); // apply the identity curve initially, so preview matches original
+	// Set a professional window caption title
+	SetWindowText(_T("Interactive Tone Curves Adjustment"));
+
+	ApplyCurrentCurve();
 
 	return TRUE;
 }

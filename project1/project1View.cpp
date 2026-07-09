@@ -111,7 +111,6 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_POINTPROCESS_SIGMOIDCONTRAST, &Cproject1View::OnPointprocessSigmoidcontrast)
 	ON_COMMAND(ID_POINTPROCESS_SEPIATONE, &Cproject1View::OnPointprocessSepiatone)
 	ON_COMMAND(ID_POINTPROCESS_CURVESADJUSTMENT, &Cproject1View::OnPointprocessCurvesadjustment)
-	//ON_COMMAND(ID_POINTPROCESS_CURVESADJUSTMENT, &Cproject1View::OnPointprocessCurvesadjustment)
 END_MESSAGE_MAP()
 
 // Cproject1View construction/destruction
@@ -5765,7 +5764,7 @@ void Cproject1View::ApplyCurvesLUT(const BYTE lut[256])
 
 	Invalidate(FALSE);
 	UpdateWindow();
-} // <-- Correctly closing ApplyCurvesLUT here
+} 
 
 void Cproject1View::OnPointprocessCurvesadjustment()
 {
