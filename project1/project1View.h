@@ -53,11 +53,11 @@ protected:
 	void RotateArbitrary(double angleDegrees);
 	void RotateImageArbitrary(CImage& img, double angleDegrees);
 	int ComputeOtsuThreshold(const std::vector<int>& histogram, int totalPixels);
-
 protected:
 	//afx_msg void OnColorsHsvadjustment();
 	DECLARE_MESSAGE_MAP()
 public:
+	afx_msg void ApplyCurvesLUT(const BYTE lut[256]);
 	afx_msg void OnViewFittowindow();
 	afx_msg void OnDestroy();
 	afx_msg void OnUpdateViewFittowindow(CCmdUI* pCmdUI);
@@ -148,6 +148,7 @@ public:
 	afx_msg void OnPointprocessLevelsadjustment();
 	afx_msg void OnPointprocessSigmoidcontrast();
 	afx_msg void OnPointprocessSepiatone();
+	afx_msg void OnPointprocessCurvesadjustment();
 };
 
 #ifndef _DEBUG  // debug version in project1View.cpp

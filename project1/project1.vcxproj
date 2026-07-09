@@ -150,6 +150,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_WINDOWS;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -200,6 +201,8 @@
     <ClInclude Include="CBrightnessContrastDlg.h" />
     <ClInclude Include="CColorBalanceDlg.h" />
     <ClInclude Include="CContrastStretchDlg.h" />
+    <ClInclude Include="CCurveControl.h" />
+    <ClInclude Include="CCurvesAdjustmentDlg.h" />
     <ClInclude Include="CFlipRotateDlg.h" />
     <ClInclude Include="CGammaDlg.h" />
     <ClInclude Include="CGraySlicingDlg.h" />
@@ -233,6 +236,8 @@
     <ClCompile Include="CBrightnessContrastDlg.cpp" />
     <ClCompile Include="CColorBalanceDlg.cpp" />
     <ClCompile Include="CContrastStretchDlg.cpp" />
+    <ClCompile Include="CCurveControl.cpp" />
+    <ClCompile Include="CCurvesAdjustmentDlg.cpp" />
     <ClCompile Include="CFlipRotateDlg.cpp" />
     <ClCompile Include="CGammaDlg.cpp" />
     <ClCompile Include="CGraySlicingDlg.cpp" />
