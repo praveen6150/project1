@@ -99,6 +99,15 @@
     <ClInclude Include="CBinaryThresholdDlg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="CLevelsAdjustmentDlg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CSigmoidContrastDlg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CSepiaToneDlg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="project1.cpp">
@@ -174,6 +183,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CBinaryThresholdDlg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CLevelsAdjustmentDlg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CSigmoidContrastDlg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CSepiaToneDlg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

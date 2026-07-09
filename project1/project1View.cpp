@@ -37,7 +37,7 @@
 #include "CBinaryThresholdDlg.h"
 #include "CLevelsAdjustmentDlg.h"
 #include "CSigmoidContrastDlg.h"
-
+#include "CSepiaToneDlg.h"
 
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
 
@@ -106,6 +106,7 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_POINTPROCESS_BINARYTHRESHOLD, &Cproject1View::OnPointprocessBinarythreshold)
 	ON_COMMAND(ID_BASICINTENSITYTRANSFORMATIONS_LEVELADJUSTMENT, &Cproject1View::OnPointprocessLevelsadjustment)
 	ON_COMMAND(ID_POINTPROCESS_SIGMOIDCONTRAST, &Cproject1View::OnPointprocessSigmoidcontrast)
+	ON_COMMAND(ID_POINTPROCESS_SEPIATONE, &Cproject1View::OnPointprocessSepiatone)
 END_MESSAGE_MAP()
 
 // Cproject1View construction/destruction
@@ -5629,3 +5630,96 @@ void Cproject1View::ApplySigmoidContrast(double gain, int midpoint)
 }
 
 
+void Cproject1View::ApplySepiaTone(double intensity)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull() || m_pixelBackupBuffer.empty())
+		return;
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bytesPerPixel = pDoc->m_image.GetBPP() / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+
+	BYTE* pDstBase = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pDstBase += pitch * (height - 1);
+	BYTE* pSrcBase = m_pixelBackupBuffer.data();
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pSrcRow = pSrcBase + (y * absPitch);
+		BYTE* pDstRow = pDstBase + (y * absPitch);
+
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pSrcPixel = pSrcRow + (x * bytesPerPixel);
+			BYTE* pDstPixel = pDstRow + (x * bytesPerPixel);
+
+			// Source is BGR order
+			double B = pSrcPixel[0];
+			double G = pSrcPixel[1];
+			double R = pSrcPixel[2];
+
+			// Classic sepia matrix
+			double sepiaR = 0.393 * R + 0.769 * G + 0.189 * B;
+			double sepiaG = 0.349 * R + 0.686 * G + 0.168 * B;
+			double sepiaB = 0.272 * R + 0.534 * G + 0.131 * B;
+
+			if (sepiaR > 255.0) sepiaR = 255.0;
+			if (sepiaG > 255.0) sepiaG = 255.0;
+			if (sepiaB > 255.0) sepiaB = 255.0;
+
+			// Blend original and sepia by intensity
+			double finalR = R * (1.0 - intensity) + sepiaR * intensity;
+			double finalG = G * (1.0 - intensity) + sepiaG * intensity;
+			double finalB = B * (1.0 - intensity) + sepiaB * intensity;
+
+			pDstPixel[0] = (BYTE)(finalB + 0.5); // B
+			pDstPixel[1] = (BYTE)(finalG + 0.5); // G
+			pDstPixel[2] = (BYTE)(finalR + 0.5); // R
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+void Cproject1View::OnPointprocessSepiatone()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull())
+		return;
+
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp / 8 < 3)
+	{
+		AfxMessageBox(_T("This feature requires a 24-bit or 32-bit color image."));
+		return;
+	}
+
+	int height = pDoc->m_image.GetHeight();
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+	size_t totalBytes = (size_t)absPitch * height;
+
+	m_pixelBackupBuffer.resize(totalBytes);
+	BYTE* pImgBits = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pImgBits += pitch * (height - 1);
+	std::memcpy(m_pixelBackupBuffer.data(), pImgBits, totalBytes);
+
+	CSepiaToneDlg dlg(this);
+	dlg.m_pView = this;
+
+	if (dlg.DoModal() == IDOK)
+	{
+		pDoc->SetModifiedFlag(TRUE);
+		pDoc->UpdateAllViews(NULL);
+	}
+	else
+	{
+		std::memcpy(pImgBits, m_pixelBackupBuffer.data(), totalBytes);
+		pDoc->UpdateAllViews(NULL);
+	}
+}

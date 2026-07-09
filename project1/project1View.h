@@ -144,8 +144,10 @@ public:
 	afx_msg void ApplyBinaryThreshold(int thresholdValue);
 	afx_msg void ApplyLevelsAdjustment(int blackPoint, int whitePoint, double gamma);
 	afx_msg void ApplySigmoidContrast(double gain, int midpoint);
+	afx_msg void ApplySepiaTone(double intensity);
 	afx_msg void OnPointprocessLevelsadjustment();
 	afx_msg void OnPointprocessSigmoidcontrast();
+	afx_msg void OnPointprocessSepiatone();
 };
 
 #ifndef _DEBUG  // debug version in project1View.cpp
