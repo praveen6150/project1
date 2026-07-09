@@ -209,6 +209,7 @@
     <ClInclude Include="CHslDlg.h" />
     <ClInclude Include="CHsvDlg.h" />
     <ClInclude Include="CInverseLogTransformDlg.h" />
+    <ClInclude Include="CLevelsAdjustmentDlg.h" />
     <ClInclude Include="CLogTransformDlg.h" />
     <ClInclude Include="COtsuThresholdDlg.h" />
     <ClInclude Include="CPosterizationDlg.h" />
@@ -239,6 +240,7 @@
     <ClCompile Include="CHslDlg.cpp" />
     <ClCompile Include="CHsvDlg.cpp" />
     <ClCompile Include="CInverseLogTransformDlg.cpp" />
+    <ClCompile Include="CLevelsAdjustmentDlg.cpp" />
     <ClCompile Include="CLogTransformDlg.cpp" />
     <ClCompile Include="COtsuThresholdDlg.cpp" />
     <ClCompile Include="CPosterizationDlg.cpp" />

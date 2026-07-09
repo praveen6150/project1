@@ -142,6 +142,8 @@ public:
 	afx_msg void RestoreOriginalPixels();
 	afx_msg void OnPointprocessBinarythreshold();
 	afx_msg void ApplyBinaryThreshold(int thresholdValue);
+	afx_msg void ApplyLevelsAdjustment(int blackPoint, int whitePoint, double gamma);
+	afx_msg void OnPointprocessLevelsadjustment();
 };
 
 #ifndef _DEBUG  // debug version in project1View.cpp

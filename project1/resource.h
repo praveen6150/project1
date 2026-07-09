@@ -23,6 +23,7 @@
 #define IDD_DIALOG2                     337
 #define IDD_OTSU_THRESHOLD              338
 #define IDD_BINARY_THRESHOLD            342
+#define IDD_LEVELS_ADJUSTMENT           344
 #define IDC_EDIT_BRIGHTNESS             1007
 #define IDC_EDIT_CONTRAST               1008
 #define IDC_STATIC_BRIGHT_TEXT          1010
@@ -97,7 +98,14 @@
 #define IDC_CHECK_OTSU_PREVIEW          1084
 #define IDC_SLIDER1                     1087
 #define IDC_SLIDER_BINARY_THRESHOLD     1087
+#define IDC_SLIDER_LEVELS_BLACK         1087
 #define IDC_STATIC_BINARY_THRESHOLD_VALUE 1088
+#define IDC_SLIDER_LEVELS_WHITE         1088
+#define IDC_SLIDER3                     1089
+#define IDC_SLIDER_LEVELS_GAMMA         1089
+#define IDC_STATIC_LEVELS_BLACK         1090
+#define IDC_STATIC_LEVELS_WHITE         1091
+#define IDC_STATIC_LEVELS_GAMMA         1092
 #define ID_VIEW_FITTOWINDOW             32771
 #define ID_POINT_INVERTCOLORS           32773
 #define ID_Menu                         32778
@@ -176,14 +184,15 @@
 #define ID_PIECEWISE_BINARYTHRESHOLDING 32857
 #define ID_POINTPROCESS_BINARYTHRESHOLD 32858
 #define ID_PIECEWISE_BINARYTHRESHOLDING32859 32859
+#define ID_BASICINTENSITYTRANSFORMATIONS_LEVELADJUSTMENT 32860
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        344
-#define _APS_NEXT_COMMAND_VALUE         32860
-#define _APS_NEXT_CONTROL_VALUE         1089
+#define _APS_NEXT_RESOURCE_VALUE        346
+#define _APS_NEXT_COMMAND_VALUE         32861
+#define _APS_NEXT_CONTROL_VALUE         1093
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

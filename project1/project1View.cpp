@@ -35,6 +35,9 @@
 #include "CPseudoColorDlg.h"
 #include "COtsuThresholdDlg.h"
 #include "CBinaryThresholdDlg.h"
+#include "CLevelsAdjustmentDlg.h"
+
+
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
 
 BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
@@ -100,6 +103,7 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_COLORANDVISUALIZATION_PSEUDO, &Cproject1View::OnColorprocessPseudocoloring)
 	ON_COMMAND(ID_POINTPROCESS_OTSUTHRESHOLD, &Cproject1View::OnPointprocessOtsuthreshold)
 	ON_COMMAND(ID_POINTPROCESS_BINARYTHRESHOLD, &Cproject1View::OnPointprocessBinarythreshold)
+	ON_COMMAND(ID_BASICINTENSITYTRANSFORMATIONS_LEVELADJUSTMENT, &Cproject1View::OnPointprocessLevelsadjustment)
 END_MESSAGE_MAP()
 
 // Cproject1View construction/destruction
@@ -5405,6 +5409,111 @@ void Cproject1View::ApplyBinaryThreshold(int thresholdValue)
 			pDstPixel[0] = binary; // B
 			pDstPixel[1] = binary; // G
 			pDstPixel[2] = binary; // R
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+
+void Cproject1View::OnPointprocessLevelsadjustment()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull())
+		return;
+
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp / 8 < 3)
+	{
+		AfxMessageBox(_T("This feature requires a 24-bit or 32-bit color image."));
+		return;
+	}
+
+	int height = pDoc->m_image.GetHeight();
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+	size_t totalBytes = (size_t)absPitch * height;
+
+	// Back up original pixels so Cancel can restore them
+	m_pixelBackupBuffer.resize(totalBytes);
+	BYTE* pImgBits = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pImgBits += pitch * (height - 1);
+	std::memcpy(m_pixelBackupBuffer.data(), pImgBits, totalBytes);
+
+	CLevelsAdjustmentDlg dlg(this);
+	dlg.m_pView = this;
+
+	if (dlg.DoModal() == IDOK)
+	{
+		pDoc->SetModifiedFlag(TRUE);
+		pDoc->UpdateAllViews(NULL);
+	}
+	else
+	{
+		std::memcpy(pImgBits, m_pixelBackupBuffer.data(), totalBytes);
+		pDoc->UpdateAllViews(NULL);
+	}
+}
+
+// Applies the black-point/white-point/gamma remapping to each channel
+// independently, reading from the untouched backup buffer so repeated
+// slider drags never compound.
+void Cproject1View::ApplyLevelsAdjustment(int blackPoint, int whitePoint, double gamma)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull() || m_pixelBackupBuffer.empty())
+		return;
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bytesPerPixel = pDoc->m_image.GetBPP() / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+
+	BYTE* pDstBase = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pDstBase += pitch * (height - 1);
+	BYTE* pSrcBase = m_pixelBackupBuffer.data();
+
+	// Build a 256-entry LUT once, since black/white/gamma apply identically
+	// to every pixel regardless of position — same optimization as your
+	// Pseudo-Color feature's per-channel LUTs.
+	BYTE lut[256];
+	double range = (double)(whitePoint - blackPoint);
+	if (range < 1.0) range = 1.0; // safety guard against divide-by-zero
+
+	for (int i = 0; i < 256; i++)
+	{
+		double normalized = (i - blackPoint) / range;
+
+		if (normalized < 0.0) normalized = 0.0;
+		if (normalized > 1.0) normalized = 1.0;
+
+		double output = 255.0 * pow(normalized, 1.0 / gamma);
+
+		if (output < 0.0)   output = 0.0;
+		if (output > 255.0) output = 255.0;
+
+		lut[i] = (BYTE)(output + 0.5); // round to nearest
+	}
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pSrcRow = pSrcBase + (y * absPitch);
+		BYTE* pDstRow = pDstBase + (y * absPitch);
+
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pSrcPixel = pSrcRow + (x * bytesPerPixel);
+			BYTE* pDstPixel = pDstRow + (x * bytesPerPixel);
+
+			// Apply the same LUT to each channel independently —
+			// this preserves color, unlike your grayscale-based features
+			pDstPixel[0] = lut[pSrcPixel[0]]; // B
+			pDstPixel[1] = lut[pSrcPixel[1]]; // G
+			pDstPixel[2] = lut[pSrcPixel[2]]; // R
 		}
 	}
 
