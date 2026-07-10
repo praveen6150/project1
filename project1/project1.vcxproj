@@ -199,6 +199,7 @@
     <ClInclude Include="CBinaryThresholdDlg.h" />
     <ClInclude Include="CBitPlaneDlg.h" />
     <ClInclude Include="CBrightnessContrastDlg.h" />
+    <ClInclude Include="CChannelIsolationDlg.h" />
     <ClInclude Include="CColorBalanceDlg.h" />
     <ClInclude Include="CContrastStretchDlg.h" />
     <ClInclude Include="CCurveControl.h" />
@@ -234,6 +235,7 @@
     <ClCompile Include="CBinaryThresholdDlg.cpp" />
     <ClCompile Include="CBitPlaneDlg.cpp" />
     <ClCompile Include="CBrightnessContrastDlg.cpp" />
+    <ClCompile Include="CChannelIsolationDlg.cpp" />
     <ClCompile Include="CColorBalanceDlg.cpp" />
     <ClCompile Include="CContrastStretchDlg.cpp" />
     <ClCompile Include="CCurveControl.cpp" />

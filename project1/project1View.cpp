@@ -41,6 +41,7 @@
 #include "CSepiaToneDlg.h"
 #include "CCurvesAdjustmentDlg.h"
 #include "CCurveControl.h"
+#include "CChannelIsolationDlg.h"
 
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
 
@@ -111,6 +112,7 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_POINTPROCESS_SIGMOIDCONTRAST, &Cproject1View::OnPointprocessSigmoidcontrast)
 	ON_COMMAND(ID_POINTPROCESS_SEPIATONE, &Cproject1View::OnPointprocessSepiatone)
 	ON_COMMAND(ID_POINTPROCESS_CURVESADJUSTMENT, &Cproject1View::OnPointprocessCurvesadjustment)
+	ON_COMMAND(ID_POINTPROCESS_CHANNELISOLATION, &Cproject1View::OnPointprocessChannelisolation)
 END_MESSAGE_MAP()
 
 // Cproject1View construction/destruction
@@ -5806,6 +5808,86 @@ void Cproject1View::OnPointprocessCurvesadjustment()
 			pDoc->m_imageOriginal.BitBlt(pDoc->m_image.GetDC(), 0, 0, SRCCOPY);
 			pDoc->m_image.ReleaseDC();
 		}
+		pDoc->UpdateAllViews(NULL);
+	}
+}
+
+void Cproject1View::ApplyChannelIsolation(int channel)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull() || m_pixelBackupBuffer.empty())
+		return;
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bytesPerPixel = pDoc->m_image.GetBPP() / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+
+	BYTE* pDstBase = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pDstBase += pitch * (height - 1);
+	BYTE* pSrcBase = m_pixelBackupBuffer.data();
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pSrcRow = pSrcBase + (y * absPitch);
+		BYTE* pDstRow = pDstBase + (y * absPitch);
+
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pSrcPixel = pSrcRow + (x * bytesPerPixel);
+			BYTE* pDstPixel = pDstRow + (x * bytesPerPixel);
+
+			BYTE B = pSrcPixel[0];
+			BYTE G = pSrcPixel[1];
+			BYTE R = pSrcPixel[2];
+
+			// channel: 0=Red, 1=Green, 2=Blue - zero out the other two
+			pDstPixel[0] = (channel == 2) ? B : 0; // Blue
+			pDstPixel[1] = (channel == 1) ? G : 0; // Green
+			pDstPixel[2] = (channel == 0) ? R : 0; // Red
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+void Cproject1View::OnPointprocessChannelisolation()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull())
+		return;
+
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp / 8 < 3)
+	{
+		AfxMessageBox(_T("This feature requires a 24-bit or 32-bit color image."));
+		return;
+	}
+
+	int height = pDoc->m_image.GetHeight();
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+	size_t totalBytes = (size_t)absPitch * height;
+
+	m_pixelBackupBuffer.resize(totalBytes);
+	BYTE* pImgBits = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pImgBits += pitch * (height - 1);
+	std::memcpy(m_pixelBackupBuffer.data(), pImgBits, totalBytes);
+
+	CChannelIsolationDlg dlg(this);
+	dlg.m_pView = this;
+
+	if (dlg.DoModal() == IDOK)
+	{
+		pDoc->SetModifiedFlag(TRUE);
+		pDoc->UpdateAllViews(NULL);
+	}
+	else
+	{
+		std::memcpy(pImgBits, m_pixelBackupBuffer.data(), totalBytes);
 		pDoc->UpdateAllViews(NULL);
 	}
 }

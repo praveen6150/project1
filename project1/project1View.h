@@ -149,6 +149,8 @@ public:
 	afx_msg void OnPointprocessSigmoidcontrast();
 	afx_msg void OnPointprocessSepiatone();
 	afx_msg void OnPointprocessCurvesadjustment();
+	afx_msg void ApplyChannelIsolation(int channel);
+	afx_msg void OnPointprocessChannelisolation();
 };
 
 #ifndef _DEBUG  // debug version in project1View.cpp

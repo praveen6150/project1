@@ -28,6 +28,7 @@
 #define IDD_SEPIA_TONE                  349
 #define IDD_DIALOG3                     351
 #define IDD_CURVES_ADJUSTMENT           351
+#define IDD_CHANNEL_ISOLATION           353
 #define IDC_EDIT_BRIGHTNESS             1007
 #define IDC_EDIT_CONTRAST               1008
 #define IDC_STATIC_BRIGHT_TEXT          1010
@@ -117,6 +118,10 @@
 #define IDC_STATIC_SIGMOID_MIDPOINT     1094
 #define IDC_STATIC_SEPIA_INTENSITY      1095
 #define IDC_STATIC_CURVE_AREA           1096
+#define IDC_RADIO_CHANNEL_RED           1097
+#define IDC_RADIO2                      1098
+#define IDC_RADIO_CHANNEL_BLUE          1098
+#define IDC_RADIO_CHANNEL_GREEN         1099
 #define ID_VIEW_FITTOWINDOW             32771
 #define ID_POINT_INVERTCOLORS           32773
 #define ID_Menu                         32778
@@ -202,14 +207,16 @@
 #define ID_POINTPROCESS_SEPIATONE       32864
 #define ID_BASICINTENSITYTRANSFORMATIONS_CURVESADJUSTMENT 32865
 #define ID_POINTPROCESS_CURVESADJUSTMENT 32866
+#define ID_COLORMODELTRANSFORMATION_CHANNELISOLATION 32867
+#define ID_POINTPROCESS_CHANNELISOLATION 32868
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        353
-#define _APS_NEXT_COMMAND_VALUE         32867
-#define _APS_NEXT_CONTROL_VALUE         1097
+#define _APS_NEXT_RESOURCE_VALUE        355
+#define _APS_NEXT_COMMAND_VALUE         32869
+#define _APS_NEXT_CONTROL_VALUE         1099
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif
