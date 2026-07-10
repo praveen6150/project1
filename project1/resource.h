@@ -29,6 +29,7 @@
 #define IDD_DIALOG3                     351
 #define IDD_CURVES_ADJUSTMENT           351
 #define IDD_CHANNEL_ISOLATION           353
+#define IDD_DUOTONE                     355
 #define IDC_EDIT_BRIGHTNESS             1007
 #define IDC_EDIT_CONTRAST               1008
 #define IDC_STATIC_BRIGHT_TEXT          1010
@@ -55,7 +56,10 @@
 #define IDC_STATIC_GAMMA_VAL            1031
 #define IDC_BUTTON1                     1032
 #define IDC_BUTTON_RESET_CURVE          1032
+#define IDC_BUTTON_DUOTONE_HIGHLIGHT    1032
 #define IDC_BTN_ALL                     1033
+#define IDC_BUTTON2                     1033
+#define IDC_BUTTON_DUOTONE_SHADOW       1033
 #define IDC_SLIDER_SOLAR_INTENSITY      1034
 #define IDC_STATIC_SOLAR_VAL            1035
 #define IDC_SLIDER_POSTER_LEVELS        1036
@@ -119,9 +123,10 @@
 #define IDC_STATIC_SEPIA_INTENSITY      1095
 #define IDC_STATIC_CURVE_AREA           1096
 #define IDC_RADIO_CHANNEL_RED           1097
-#define IDC_RADIO2                      1098
 #define IDC_RADIO_CHANNEL_BLUE          1098
 #define IDC_RADIO_CHANNEL_GREEN         1099
+#define IDC_STATIC_DUOTONE_SHADOW_SWATCH 1099
+#define IDC_STATIC_DUOTONE_HIGHLIGHT_SWATCH 1100
 #define ID_VIEW_FITTOWINDOW             32771
 #define ID_POINT_INVERTCOLORS           32773
 #define ID_Menu                         32778
@@ -209,14 +214,16 @@
 #define ID_POINTPROCESS_CURVESADJUSTMENT 32866
 #define ID_COLORMODELTRANSFORMATION_CHANNELISOLATION 32867
 #define ID_POINTPROCESS_CHANNELISOLATION 32868
+#define ID_COLORANDVISUALIZATION_DUOTONE 32869
+#define ID_POINTPROCESS_DUOTONE         32870
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        355
-#define _APS_NEXT_COMMAND_VALUE         32869
-#define _APS_NEXT_CONTROL_VALUE         1099
+#define _APS_NEXT_RESOURCE_VALUE        357
+#define _APS_NEXT_COMMAND_VALUE         32871
+#define _APS_NEXT_CONTROL_VALUE         1101
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

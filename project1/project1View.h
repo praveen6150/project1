@@ -151,6 +151,8 @@ public:
 	afx_msg void OnPointprocessCurvesadjustment();
 	afx_msg void ApplyChannelIsolation(int channel);
 	afx_msg void OnPointprocessChannelisolation();
+	afx_msg void ApplyDuotone(COLORREF shadowColor, COLORREF highlightColor);
+	afx_msg void OnPointprocessDuotone();
 };
 
 #ifndef _DEBUG  // debug version in project1View.cpp

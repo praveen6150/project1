@@ -42,6 +42,7 @@
 #include "CCurvesAdjustmentDlg.h"
 #include "CCurveControl.h"
 #include "CChannelIsolationDlg.h"
+#include "CDuotoneDlg.h"
 
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
 
@@ -113,6 +114,7 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_POINTPROCESS_SEPIATONE, &Cproject1View::OnPointprocessSepiatone)
 	ON_COMMAND(ID_POINTPROCESS_CURVESADJUSTMENT, &Cproject1View::OnPointprocessCurvesadjustment)
 	ON_COMMAND(ID_POINTPROCESS_CHANNELISOLATION, &Cproject1View::OnPointprocessChannelisolation)
+	ON_COMMAND(ID_POINTPROCESS_DUOTONE, &Cproject1View::OnPointprocessDuotone)
 END_MESSAGE_MAP()
 
 // Cproject1View construction/destruction
@@ -5892,3 +5894,102 @@ void Cproject1View::OnPointprocessChannelisolation()
 	}
 }
 
+
+void Cproject1View::ApplyDuotone(COLORREF shadowColor, COLORREF highlightColor)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull() || m_pixelBackupBuffer.empty())
+		return;
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bytesPerPixel = pDoc->m_image.GetBPP() / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+
+	BYTE* pDstBase = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pDstBase += pitch * (height - 1);
+	BYTE* pSrcBase = m_pixelBackupBuffer.data();
+
+	// Extract R/G/B from each COLORREF once, outside the pixel loop
+	int shadowR = GetRValue(shadowColor);
+	int shadowG = GetGValue(shadowColor);
+	int shadowB = GetBValue(shadowColor);
+	int highR = GetRValue(highlightColor);
+	int highG = GetGValue(highlightColor);
+	int highB = GetBValue(highlightColor);
+
+	// Build a 256-entry LUT for each output channel, since the gradient
+	// only depends on gray intensity, same optimization as your other features
+	BYTE lutR[256], lutG[256], lutB[256];
+	for (int i = 0; i < 256; i++)
+	{
+		double t = i / 255.0;
+		lutR[i] = (BYTE)(shadowR + t * (highR - shadowR) + 0.5);
+		lutG[i] = (BYTE)(shadowG + t * (highG - shadowG) + 0.5);
+		lutB[i] = (BYTE)(shadowB + t * (highB - shadowB) + 0.5);
+	}
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pSrcRow = pSrcBase + (y * absPitch);
+		BYTE* pDstRow = pDstBase + (y * absPitch);
+
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pSrcPixel = pSrcRow + (x * bytesPerPixel);
+			BYTE* pDstPixel = pDstRow + (x * bytesPerPixel);
+
+			BYTE gray = (BYTE)(0.299 * pSrcPixel[2] + 0.587 * pSrcPixel[1] + 0.114 * pSrcPixel[0]);
+
+			pDstPixel[0] = lutB[gray]; // B
+			pDstPixel[1] = lutG[gray]; // G
+			pDstPixel[2] = lutR[gray]; // R
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+
+void Cproject1View::OnPointprocessDuotone()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull())
+		return;
+
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp / 8 < 3)
+	{
+		AfxMessageBox(_T("This feature requires a 24-bit or 32-bit color image."));
+		return;
+	}
+
+	int height = pDoc->m_image.GetHeight();
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+	size_t totalBytes = (size_t)absPitch * height;
+
+	m_pixelBackupBuffer.resize(totalBytes);
+	BYTE* pImgBits = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pImgBits += pitch * (height - 1);
+	std::memcpy(m_pixelBackupBuffer.data(), pImgBits, totalBytes);
+
+	CDuotoneDlg dlg(this);
+	dlg.m_pView = this;
+
+	if (dlg.DoModal() == IDOK)
+	{
+		pDoc->SetModifiedFlag(TRUE);
+		pDoc->UpdateAllViews(NULL);
+	}
+	else
+	{
+		std::memcpy(pImgBits, m_pixelBackupBuffer.data(), totalBytes);
+		pDoc->UpdateAllViews(NULL);
+	}
+
+}

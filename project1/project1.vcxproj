@@ -204,6 +204,7 @@
     <ClInclude Include="CContrastStretchDlg.h" />
     <ClInclude Include="CCurveControl.h" />
     <ClInclude Include="CCurvesAdjustmentDlg.h" />
+    <ClInclude Include="CDuotoneDlg.h" />
     <ClInclude Include="CFlipRotateDlg.h" />
     <ClInclude Include="CGammaDlg.h" />
     <ClInclude Include="CGraySlicingDlg.h" />
@@ -240,6 +241,7 @@
     <ClCompile Include="CContrastStretchDlg.cpp" />
     <ClCompile Include="CCurveControl.cpp" />
     <ClCompile Include="CCurvesAdjustmentDlg.cpp" />
+    <ClCompile Include="CDuotoneDlg.cpp" />
     <ClCompile Include="CFlipRotateDlg.cpp" />
     <ClCompile Include="CGammaDlg.cpp" />
     <ClCompile Include="CGraySlicingDlg.cpp" />
