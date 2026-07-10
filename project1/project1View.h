@@ -5,6 +5,7 @@
 
 #include "project1Doc.h"
 #include <vector>
+#include <random>
 
 class CHistogramDlg; // <-- 1. ADD THIS LINE SO THE VIEW KNOWS THE DIALOG EXISTS
 
@@ -15,6 +16,7 @@ protected: // create from serialization only
 	DECLARE_DYNCREATE(Cproject1View)
 	BOOL   m_bPreviewRotationActive = FALSE;
 	double m_previewRotationAngle = 0.0;
+	std::mt19937 m_noiseGenerator;
 	// Attributes
 public:
 	Cproject1Doc* GetDocument() const;
@@ -153,6 +155,8 @@ public:
 	afx_msg void OnPointprocessChannelisolation();
 	afx_msg void ApplyDuotone(COLORREF shadowColor, COLORREF highlightColor);
 	afx_msg void OnPointprocessDuotone();
+	afx_msg void ApplyGaussianNoise(int stdDev);
+	afx_msg void OnPointprocessGaussiannoise();
 };
 
 #ifndef _DEBUG  // debug version in project1View.cpp

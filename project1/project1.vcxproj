@@ -207,6 +207,7 @@
     <ClInclude Include="CDuotoneDlg.h" />
     <ClInclude Include="CFlipRotateDlg.h" />
     <ClInclude Include="CGammaDlg.h" />
+    <ClInclude Include="CGaussianNoiseDlg.h" />
     <ClInclude Include="CGraySlicingDlg.h" />
     <ClInclude Include="ChildFrm.h" />
     <ClInclude Include="CHistogramDlg.h" />
@@ -244,6 +245,7 @@
     <ClCompile Include="CDuotoneDlg.cpp" />
     <ClCompile Include="CFlipRotateDlg.cpp" />
     <ClCompile Include="CGammaDlg.cpp" />
+    <ClCompile Include="CGaussianNoiseDlg.cpp" />
     <ClCompile Include="CGraySlicingDlg.cpp" />
     <ClCompile Include="ChildFrm.cpp" />
     <ClCompile Include="CHistogramDlg.cpp" />

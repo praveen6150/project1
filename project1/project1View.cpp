@@ -21,6 +21,8 @@
 #include "CColorBalanceDlg.h"
 #include <new>
 #include <vector>
+#include <random>
+#include <chrono>
 #include "MainFrm.h"
 #include "CFlipRotateDlg.h"
 #ifdef _DEBUG
@@ -43,6 +45,8 @@
 #include "CCurveControl.h"
 #include "CChannelIsolationDlg.h"
 #include "CDuotoneDlg.h"
+#include "CGaussianNoiseDlg.h"
+
 
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
 
@@ -115,11 +119,13 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_POINTPROCESS_CURVESADJUSTMENT, &Cproject1View::OnPointprocessCurvesadjustment)
 	ON_COMMAND(ID_POINTPROCESS_CHANNELISOLATION, &Cproject1View::OnPointprocessChannelisolation)
 	ON_COMMAND(ID_POINTPROCESS_DUOTONE, &Cproject1View::OnPointprocessDuotone)
+	ON_COMMAND(ID_POINTPROCESS_GAUSSIANNOISE, &Cproject1View::OnPointprocessGaussiannoise)
 END_MESSAGE_MAP()
 
 // Cproject1View construction/destruction
 
 Cproject1View::Cproject1View() noexcept
+	: m_noiseGenerator((unsigned int)std::chrono::steady_clock::now().time_since_epoch().count())
 {
 	// TODO: add construction code here
 	m_bFitToWindow = FALSE;
@@ -5992,4 +5998,101 @@ void Cproject1View::OnPointprocessDuotone()
 		pDoc->UpdateAllViews(NULL);
 	}
 
+}
+
+
+void Cproject1View::ApplyGaussianNoise(int stdDev)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull() || m_pixelBackupBuffer.empty())
+		return;
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bytesPerPixel = pDoc->m_image.GetBPP() / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+
+	BYTE* pDstBase = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pDstBase += pitch * (height - 1);
+	BYTE* pSrcBase = m_pixelBackupBuffer.data();
+
+	// If there's no noise to add, just copy the original through unchanged
+	// and skip creating a normal_distribution entirely (sigma=0 is invalid).
+	if (stdDev <= 0)
+	{
+		size_t totalBytes = (size_t)absPitch * height;
+		std::memcpy(pDstBase, pSrcBase, totalBytes);
+		Invalidate(FALSE);
+		UpdateWindow();
+		return;
+	}
+
+	std::normal_distribution<double> dist(0.0, (double)stdDev);
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pSrcRow = pSrcBase + (y * absPitch);
+		BYTE* pDstRow = pDstBase + (y * absPitch);
+
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pSrcPixel = pSrcRow + (x * bytesPerPixel);
+			BYTE* pDstPixel = pDstRow + (x * bytesPerPixel);
+
+			for (int c = 0; c < 3; c++)
+			{
+				double noise = dist(m_noiseGenerator);
+				double result = pSrcPixel[c] + noise;
+
+				if (result < 0.0)   result = 0.0;
+				if (result > 255.0) result = 255.0;
+
+				pDstPixel[c] = (BYTE)(result + 0.5);
+			}
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+void Cproject1View::OnPointprocessGaussiannoise()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull())
+		return;
+
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp / 8 < 3)
+	{
+		AfxMessageBox(_T("This feature requires a 24-bit or 32-bit color image."));
+		return;
+	}
+
+	int height = pDoc->m_image.GetHeight();
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+	size_t totalBytes = (size_t)absPitch * height;
+
+	m_pixelBackupBuffer.resize(totalBytes);
+	BYTE* pImgBits = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pImgBits += pitch * (height - 1);
+	std::memcpy(m_pixelBackupBuffer.data(), pImgBits, totalBytes);
+
+	CGaussianNoiseDlg dlg(this);
+	dlg.m_pView = this;
+
+	if (dlg.DoModal() == IDOK)
+	{
+		pDoc->SetModifiedFlag(TRUE);
+		pDoc->UpdateAllViews(NULL);
+	}
+	else
+	{
+		std::memcpy(pImgBits, m_pixelBackupBuffer.data(), totalBytes);
+		pDoc->UpdateAllViews(NULL);
+	}
 }
