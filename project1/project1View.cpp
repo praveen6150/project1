@@ -46,7 +46,8 @@
 #include "CChannelIsolationDlg.h"
 #include "CDuotoneDlg.h"
 #include "CGaussianNoiseDlg.h"
-
+#include "CSaltPepperNoiseDlg.h"
+#include "CVignetteDlg.h"
 
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
 
@@ -120,6 +121,8 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_POINTPROCESS_CHANNELISOLATION, &Cproject1View::OnPointprocessChannelisolation)
 	ON_COMMAND(ID_POINTPROCESS_DUOTONE, &Cproject1View::OnPointprocessDuotone)
 	ON_COMMAND(ID_POINTPROCESS_GAUSSIANNOISE, &Cproject1View::OnPointprocessGaussiannoise)
+	ON_COMMAND(ID_POINTPROCESS_SALTPEPPERNOISE, &Cproject1View::OnPointprocessSaltpeppernoise)
+	ON_COMMAND(ID_POINTPROCESS_VIGNETTE, &Cproject1View::OnPointprocessVignette)
 END_MESSAGE_MAP()
 
 // Cproject1View construction/destruction
@@ -6083,6 +6086,194 @@ void Cproject1View::OnPointprocessGaussiannoise()
 	std::memcpy(m_pixelBackupBuffer.data(), pImgBits, totalBytes);
 
 	CGaussianNoiseDlg dlg(this);
+	dlg.m_pView = this;
+
+	if (dlg.DoModal() == IDOK)
+	{
+		pDoc->SetModifiedFlag(TRUE);
+		pDoc->UpdateAllViews(NULL);
+	}
+	else
+	{
+		std::memcpy(pImgBits, m_pixelBackupBuffer.data(), totalBytes);
+		pDoc->UpdateAllViews(NULL);
+	}
+}
+
+void Cproject1View::ApplySaltPepperNoise(double probability)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull() || m_pixelBackupBuffer.empty())
+		return;
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bytesPerPixel = pDoc->m_image.GetBPP() / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+
+	BYTE* pDstBase = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pDstBase += pitch * (height - 1);
+	BYTE* pSrcBase = m_pixelBackupBuffer.data();
+
+	std::uniform_real_distribution<double> dist(0.0, 1.0);
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pSrcRow = pSrcBase + (y * absPitch);
+		BYTE* pDstRow = pDstBase + (y * absPitch);
+
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pSrcPixel = pSrcRow + (x * bytesPerPixel);
+			BYTE* pDstPixel = pDstRow + (x * bytesPerPixel);
+
+			double r = dist(m_noiseGenerator);
+
+			if (probability > 0.0 && r < probability / 2.0)
+			{
+				// "Pepper" - pure black
+				pDstPixel[0] = 0;
+				pDstPixel[1] = 0;
+				pDstPixel[2] = 0;
+			}
+			else if (probability > 0.0 && r < probability)
+			{
+				// "Salt" - pure white
+				pDstPixel[0] = 255;
+				pDstPixel[1] = 255;
+				pDstPixel[2] = 255;
+			}
+			else
+			{
+				// Unaffected - copy through unchanged
+				pDstPixel[0] = pSrcPixel[0];
+				pDstPixel[1] = pSrcPixel[1];
+				pDstPixel[2] = pSrcPixel[2];
+			}
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+void Cproject1View::OnPointprocessSaltpeppernoise()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull())
+		return;
+
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp / 8 < 3)
+	{
+		AfxMessageBox(_T("This feature requires a 24-bit or 32-bit color image."));
+		return;
+	}
+
+	int height = pDoc->m_image.GetHeight();
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+	size_t totalBytes = (size_t)absPitch * height;
+
+	m_pixelBackupBuffer.resize(totalBytes);
+	BYTE* pImgBits = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pImgBits += pitch * (height - 1);
+	std::memcpy(m_pixelBackupBuffer.data(), pImgBits, totalBytes);
+
+	CSaltPepperNoiseDlg dlg(this);
+	dlg.m_pView = this;
+
+	if (dlg.DoModal() == IDOK)
+	{
+		pDoc->SetModifiedFlag(TRUE);
+		pDoc->UpdateAllViews(NULL);
+	}
+	else
+	{
+		std::memcpy(pImgBits, m_pixelBackupBuffer.data(), totalBytes);
+		pDoc->UpdateAllViews(NULL);
+	}
+}
+
+void Cproject1View::ApplyVignette(double strength)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull() || m_pixelBackupBuffer.empty())
+		return;
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bytesPerPixel = pDoc->m_image.GetBPP() / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+
+	BYTE* pDstBase = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pDstBase += pitch * (height - 1);
+	BYTE* pSrcBase = m_pixelBackupBuffer.data();
+
+	double centerX = width / 2.0;
+	double centerY = height / 2.0;
+	double maxDist = std::sqrt(centerX * centerX + centerY * centerY);
+	if (maxDist < 1.0) maxDist = 1.0; // safety guard for tiny images
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pSrcRow = pSrcBase + (y * absPitch);
+		BYTE* pDstRow = pDstBase + (y * absPitch);
+
+		double dy = y - centerY;
+
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pSrcPixel = pSrcRow + (x * bytesPerPixel);
+			BYTE* pDstPixel = pDstRow + (x * bytesPerPixel);
+
+			double dx = x - centerX;
+			double dist = std::sqrt(dx * dx + dy * dy);
+			double normalizedDist = dist / maxDist;
+
+			double darkenFactor = 1.0 - (strength * normalizedDist * normalizedDist);
+			if (darkenFactor < 0.0) darkenFactor = 0.0;
+			if (darkenFactor > 1.0) darkenFactor = 1.0;
+
+			pDstPixel[0] = (BYTE)(pSrcPixel[0] * darkenFactor + 0.5); // B
+			pDstPixel[1] = (BYTE)(pSrcPixel[1] * darkenFactor + 0.5); // G
+			pDstPixel[2] = (BYTE)(pSrcPixel[2] * darkenFactor + 0.5); // R
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+void Cproject1View::OnPointprocessVignette()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull())
+		return;
+
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp / 8 < 3)
+	{
+		AfxMessageBox(_T("This feature requires a 24-bit or 32-bit color image."));
+		return;
+	}
+
+	int height = pDoc->m_image.GetHeight();
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+	size_t totalBytes = (size_t)absPitch * height;
+
+	m_pixelBackupBuffer.resize(totalBytes);
+	BYTE* pImgBits = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pImgBits += pitch * (height - 1);
+	std::memcpy(m_pixelBackupBuffer.data(), pImgBits, totalBytes);
+
+	CVignetteDlg dlg(this);
 	dlg.m_pView = this;
 
 	if (dlg.DoModal() == IDOK)

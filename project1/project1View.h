@@ -157,6 +157,10 @@ public:
 	afx_msg void OnPointprocessDuotone();
 	afx_msg void ApplyGaussianNoise(int stdDev);
 	afx_msg void OnPointprocessGaussiannoise();
+	afx_msg void ApplySaltPepperNoise(double probability);
+	afx_msg void OnPointprocessSaltpeppernoise();
+	afx_msg	void ApplyVignette(double strength);
+	afx_msg void OnPointprocessVignette();
 };
 
 #ifndef _DEBUG  // debug version in project1View.cpp
