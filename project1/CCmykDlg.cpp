@@ -86,7 +86,7 @@ void CCmykDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 	{
 		m_nY = currentPos;
 		strLabel.Format(_T("Yellow: %d%%"), m_nY);
-		SetDlgItemText(IDC_STATIC_Y_TEXT, strLabel);
+		SetDlgItemText(IDC_STATIC_Y_TEXT, strLabel); 
 	}
 	else if (controlID == IDC_SLIDER_BLACK)
 	{
