@@ -48,6 +48,7 @@
 #include "CGaussianNoiseDlg.h"
 #include "CSaltPepperNoiseDlg.h"
 #include "CVignetteDlg.h"
+#include "CCmykDlg.h"
 
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
 
@@ -123,9 +124,8 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_POINTPROCESS_GAUSSIANNOISE, &Cproject1View::OnPointprocessGaussiannoise)
 	ON_COMMAND(ID_POINTPROCESS_SALTPEPPERNOISE, &Cproject1View::OnPointprocessSaltpeppernoise)
 	ON_COMMAND(ID_POINTPROCESS_VIGNETTE, &Cproject1View::OnPointprocessVignette)
+	ON_COMMAND(ID_POINTPROCESS_CMYK, &Cproject1View::OnPointprocessCmyk)
 END_MESSAGE_MAP()
-
-// Cproject1View construction/destruction
 
 Cproject1View::Cproject1View() noexcept
 	: m_noiseGenerator((unsigned int)std::chrono::steady_clock::now().time_since_epoch().count())
@@ -143,12 +143,13 @@ void Cproject1View::OnDestroy()
 	// Make sure the non-modal histogram dialog doesn't outlive the view
 	if (m_pHistDlg != nullptr && ::IsWindow(m_pHistDlg->m_hWnd))
 	{
-		m_pHistDlg->DestroyWindow();   // triggers OnNcDestroy() now, while m_pView is still valid
+		m_pHistDlg->DestroyWindow();   
+		
+		// triggers OnNcDestroy() now, while m_pView is still valid
 		// Note: OnNcDestroy() does "delete this", so m_pHistDlg is now a dangling
 		// pointer in the VIEW's own member — but we're about to be destroyed too,
 		// so this is safe. Just don't touch m_pHistDlg after this point.
 	}
-
 	CScrollView::OnDestroy();
 }
 
@@ -6285,5 +6286,93 @@ void Cproject1View::OnPointprocessVignette()
 	{
 		std::memcpy(pImgBits, m_pixelBackupBuffer.data(), totalBytes);
 		pDoc->UpdateAllViews(NULL);
+	}
+}
+
+void Cproject1View::ApplyCmykFilter(int cOffset, int mOffset, int yOffset, int kOffset)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_image.IsNull() || pDoc->m_imageOriginal.IsNull()) return;
+
+	// --- Restore pristine original into the working canvas first ---
+	pDoc->m_imageOriginal.BitBlt(pDoc->m_image.GetDC(), 0, 0, SRCCOPY);
+	pDoc->m_image.ReleaseDC();
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bpp = pDoc->m_image.GetBPP();
+
+	if (bpp < 24) return;
+
+	int bytesPerPixel = bpp / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
+
+	double scaleC = cOffset / 100.0;
+	double scaleM = mOffset / 100.0;
+	double scaleY = yOffset / 100.0;
+	double scaleK = kOffset / 100.0;
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = pBits + (y * pitch);
+
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pPixel = pRow + (x * bytesPerPixel);
+
+			double b = pPixel[0] / 255.0;
+			double g = pPixel[1] / 255.0;
+			double r = pPixel[2] / 255.0;
+
+			double maxRGB = max(r, max(g, b));
+			double k = 1.0 - maxRGB;
+			double c = (k < 1.0) ? (1.0 - r - k) / (1.0 - k) : 0.0;
+			double m = (k < 1.0) ? (1.0 - g - k) / (1.0 - k) : 0.0;
+			double y_cmyk = (k < 1.0) ? (1.0 - b - k) / (1.0 - k) : 0.0;
+
+			c *= scaleC;
+			m *= scaleM;
+			y_cmyk *= scaleY;
+			k *= scaleK;
+
+			double r_new = (1.0 - c) * (1.0 - k);
+			double g_new = (1.0 - m) * (1.0 - k);
+			double b_new = (1.0 - y_cmyk) * (1.0 - k);
+
+			pPixel[0] = static_cast<BYTE>(max(0.0, min(1.0, b_new)) * 255.0 + 0.5);
+			pPixel[1] = static_cast<BYTE>(max(0.0, min(1.0, g_new)) * 255.0 + 0.5);
+			pPixel[2] = static_cast<BYTE>(max(0.0, min(1.0, r_new)) * 255.0 + 0.5);
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+void Cproject1View::OnPointprocessCmyk()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull())
+		return;
+
+	// 1. Instantiate the CMYK slider dialog frame
+	CCmykDlg dlg;
+
+	// 2. Link the dialog pointer live so it can talk back to this view canvas
+	dlg.m_pView = this;
+
+	// 3. Open the Dialog Window modally
+	if (dlg.DoModal() == IDCANCEL)
+	{
+		// If the user clicks Cancel, discard live tweaks and restore original backup copy
+		if (!pDoc->m_imageOriginal.IsNull())
+		{
+			pDoc->m_imageOriginal.BitBlt(pDoc->m_image.GetDC(), 0, 0, SRCCOPY);
+			pDoc->m_image.ReleaseDC();
+		}
+
+		// Repaint back to standard state
+		Invalidate(FALSE);
 	}
 }

@@ -34,6 +34,7 @@
 #define IDD_SALT_PEPPER_NOISE           359
 #define IDD_DIALOG4                     361
 #define IDD_VIGNETTE                    361
+#define IDD_DIALOG_CMYK                 363
 #define IDC_EDIT_BRIGHTNESS             1007
 #define IDC_EDIT_CONTRAST               1008
 #define IDC_STATIC_BRIGHT_TEXT          1010
@@ -117,11 +118,15 @@
 #define IDC_SLIDER_GAUSSIAN_STDDEV      1087
 #define IDC_SLIDER_SALTPEPPER_DENSITY   1087
 #define IDC_SLIDER_VIGNETTE_STRENGTH    1087
+#define IDC_SLIDER_CYAN                 1087
 #define IDC_STATIC_BINARY_THRESHOLD_VALUE 1088
 #define IDC_SLIDER_LEVELS_WHITE         1088
 #define IDC_SLIDER_SIGMOID_MIDPOINT     1088
+#define IDC_SLIDER_MAGENTA              1088
 #define IDC_SLIDER_LEVELS_GAMMA         1089
+#define IDC_SLIDER_BLACK                1089
 #define IDC_STATIC_LEVELS_BLACK         1090
+#define IDC_SLIDER_YELLOW               1090
 #define IDC_STATIC_LEVELS_WHITE         1091
 #define IDC_STATIC_LEVELS_GAMMA         1092
 #define IDC_STATIC_SIGMOID_GAIN         1093
@@ -136,6 +141,10 @@
 #define IDC_STATIC_GAUSSIAN_STDDEV      1101
 #define IDC_STATIC_SALTPEPPER_DENSITY   1102
 #define IDC_STATIC_VIGNETTE_STRENGTH    1103
+#define IDC_STATIC_CMYK                 1104
+#define IDC_STATIC_C_TEXT               1105
+#define IDC_STATIC_M_TEXT               1106
+#define IDC_STATIC_K_TEXT               1107
 #define ID_VIEW_FITTOWINDOW             32771
 #define ID_POINT_INVERTCOLORS           32773
 #define ID_Menu                         32778
@@ -231,14 +240,19 @@
 #define ID_POINTPROCESS_SALTPEPPERNOISE 32874
 #define ID_SPECIAL_VIGNETTEEFFECT       32875
 #define ID_POINTPROCESS_VIGNETTE        32876
+#define ID_COLORMODELTRANSFORMATION_CMYKCHANNELSELECTION 32877
+#define IDD_TRANSFORM_CMYK              32878
+#define ID_POINTTRANSFORM_CMYK          32879
+#define ID_POINTPROCESSRM_CMYK          32880
+#define ID_POINTPROCESS_CMYK            32881
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        363
-#define _APS_NEXT_COMMAND_VALUE         32877
-#define _APS_NEXT_CONTROL_VALUE         1104
+#define _APS_NEXT_RESOURCE_VALUE        365
+#define _APS_NEXT_COMMAND_VALUE         32882
+#define _APS_NEXT_CONTROL_VALUE         1108
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

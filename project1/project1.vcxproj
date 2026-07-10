@@ -200,6 +200,7 @@
     <ClInclude Include="CBitPlaneDlg.h" />
     <ClInclude Include="CBrightnessContrastDlg.h" />
     <ClInclude Include="CChannelIsolationDlg.h" />
+    <ClInclude Include="CCmykDlg.h" />
     <ClInclude Include="CColorBalanceDlg.h" />
     <ClInclude Include="CContrastStretchDlg.h" />
     <ClInclude Include="CCurveControl.h" />
@@ -240,6 +241,7 @@
     <ClCompile Include="CBitPlaneDlg.cpp" />
     <ClCompile Include="CBrightnessContrastDlg.cpp" />
     <ClCompile Include="CChannelIsolationDlg.cpp" />
+    <ClCompile Include="CCmykDlg.cpp" />
     <ClCompile Include="CColorBalanceDlg.cpp" />
     <ClCompile Include="CContrastStretchDlg.cpp" />
     <ClCompile Include="CCurveControl.cpp" />

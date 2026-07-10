@@ -161,6 +161,9 @@ public:
 	afx_msg void OnPointprocessSaltpeppernoise();
 	afx_msg	void ApplyVignette(double strength);
 	afx_msg void OnPointprocessVignette();
+	afx_msg void OnColorModelCmykConversion();
+	afx_msg void ApplyCmykFilter(int cOffset, int mOffset, int yOffset, int kOffset);
+	afx_msg void OnPointprocessCmyk();
 };
 
 #ifndef _DEBUG  // debug version in project1View.cpp
