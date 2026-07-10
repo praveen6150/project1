@@ -9,7 +9,10 @@ A Windows desktop application built with MFC (Microsoft Foundation Classes) and 
 | Main Interface | Processing Canvas |
 |---|---|
 | ![Main UI](<img width="1366" height="768" alt="arbitary" src="https://github.com/user-attachments/assets/af7beae3-8818-48ae-9924-4a6a149c9dea" /><img width="1366" height="769" alt="prewitt-edge detection" src="https://github.com/user-attachments/assets/80f99ecb-ee5d-4340-9089-ffa0a2bac841" />
-<img width="1366" height="769" alt="lcrcb" src="https://github.com/user-attachments/assets/d78dbafb-4e26-4187-a374-a73fe751b726" /><img width="1366" height="769" alt="hsi" src="https://github.com/user-attachments/assets/7272bcf0-19b0-4611-a2ce-36f4d1efc46b" /><img width="1366" height="769" alt="histogram" src="https://github.com/user-attachments/assets/671717ad-ce61-430c-865c-882a38547260" /><img width="1920" height="1080" alt="point_process" src="https://github.com/user-attachments/assets/bf10ee49-2227-40aa-b293-1a18a72ee3fa" /><img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/879b5bf3-a575-4faf-b39d-159cc732394c" /><img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/34f8a06c-5b74-414f-aecb-17e68026ae59" />
+<img width="1366" height="769" alt="lcrcb" src="https://github.com/user-attachments/assets/d78dbafb-4e26-4187-a374-a73fe751b726" /><img width="1366" height="769" alt="hsi" src="https://github.com/user-attachments/assets/7272bcf0-19b0-4611-a2ce-36f4d1efc46b" /><img width="1366" height="769" alt="histogram" src="https://github.com/user-attachments/assets/671717ad-ce61-430c-865c-882a38547260" /><img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/879b5bf3-a575-4faf-b39d-159cc732394c" /><img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/34f8a06c-5b74-414f-aecb-17e68026ae59" /><img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/0ddae708-2faa-4c21-a403-37bb73d9a339" /><img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/0c8f7e87-67c7-45f5-870e-3be6a2bddc12" /><img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/7121e4e4-eb9e-49f0-8f08-395b8f476460" />
+
+
+
 
 
 
