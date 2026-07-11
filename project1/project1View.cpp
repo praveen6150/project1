@@ -214,7 +214,27 @@ void Cproject1View::OnDraw(CDC* pDC)
 	}
 	else
 	{
-		pDoc->m_image.BitBlt(memDC.GetSafeHdc(), 0, 0, SRCCOPY);
+		//pDoc->m_image.BitBlt(memDC.GetSafeHdc(), 0, 0, SRCCOPY);
+		CPoint scrollPos = GetScrollPosition();
+
+		int imgWidth = pDoc->m_image.GetWidth();
+		int imgHeight = pDoc->m_image.GetHeight();
+
+		// Figure out how much of the image is actually visible from this
+		// scroll position, so we don't try to copy past the image's edges
+		int srcW = min(rectClient.Width(), imgWidth - scrollPos.x);
+		int srcH = min(rectClient.Height(), imgHeight - scrollPos.y);
+
+		if (srcW > 0 && srcH > 0)
+		{
+			pDoc->m_image.BitBlt(
+				memDC.GetSafeHdc(),
+				0, 0,                 // destination position in memDC (always top-left of buffer)
+				srcW, srcH,            // how much to copy
+				scrollPos.x, scrollPos.y, // WHERE in the source image to start copying from
+				SRCCOPY
+			);
+		}
 	}
 
 	// 4. Single hardware copy to physical display instantly (Zero Flicker)
@@ -342,6 +362,22 @@ BOOL Cproject1View::OnPreparePrinting(CPrintInfo* pInfo)
 {
 	return DoPreparePrinting(pInfo);
 }
+
+void Cproject1View::OnPrepareDC(CDC* pDC, CPrintInfo* pInfo)
+{
+	CScrollView::OnPrepareDC(pDC, pInfo);
+
+	// We handle scroll positioning manually inside OnDraw (by reading the
+	// correct source region of the image based on GetScrollPosition()).
+	// Cancel out CScrollView's automatic origin shift here so pDC's (0,0)
+	// always means "true top-left of the client area", preventing the
+	// scroll offset from being applied twice.
+	if (!pInfo) // don't interfere with print/print-preview DCs
+	{
+		pDC->SetViewportOrg(0, 0);
+	}
+}
+
 
 void Cproject1View::OnBeginPrinting(CDC* /*pDC*/, CPrintInfo* /*pInfo*/)
 {
