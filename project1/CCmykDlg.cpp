@@ -39,24 +39,21 @@ BOOL CCmykDlg::OnInitDialog()
 	CSliderCtrl* pSliderY = (CSliderCtrl*)GetDlgItem(IDC_SLIDER_YELLOW);
 	CSliderCtrl* pSliderK = (CSliderCtrl*)GetDlgItem(IDC_SLIDER_BLACK);
 
-	// Initialize scales to 0% - 100% (or change ranges to suit your requirements)
-	if (pSliderC != nullptr) { pSliderC->SetRange(0, 100, TRUE); pSliderC->SetPos(100); }
-	if (pSliderM != nullptr) { pSliderM->SetRange(0, 100, TRUE); pSliderM->SetPos(100); }
-	if (pSliderY != nullptr) { pSliderY->SetRange(0, 100, TRUE); pSliderY->SetPos(100); }
-	if (pSliderK != nullptr) { pSliderK->SetRange(0, 100, TRUE); pSliderK->SetPos(100); }
+	if (pSliderC != nullptr) { pSliderC->SetRange(-128, 128, TRUE); pSliderC->SetPos(0); }
+	if (pSliderM != nullptr) { pSliderM->SetRange(-128, 128, TRUE); pSliderM->SetPos(0); }
+	if (pSliderY != nullptr) { pSliderY->SetRange(-128, 128, TRUE); pSliderY->SetPos(0); }
+	if (pSliderK != nullptr) { pSliderK->SetRange(-128, 128, TRUE); pSliderK->SetPos(0); }
 
-	// Set baseline tracker defaults
-	m_nC = 100;
-	m_nM = 100;
-	m_nY = 100;
-	m_nK = 100;
+	m_nC = 0;
+	m_nM = 0;
+	m_nY = 0;
+	m_nK = 0;
 
-	// Establish default baseline label string readouts
-	SetDlgItemText(IDC_STATIC_C_TEXT, _T("Cyan: 100%"));
-	SetDlgItemText(IDC_STATIC_M_TEXT, _T("Magenta: 100%"));
-	SetDlgItemText(IDC_STATIC_Y_TEXT, _T("Yellow: 100%"));
-	SetDlgItemText(IDC_STATIC_K_TEXT, _T("Black: 100%"));
-	SetDlgItemText(IDC_STATIC_CMYK, _T("CMYK = (100, 100, 100, 100)"));
+	SetDlgItemText(IDC_STATIC_C_TEXT, _T("Cyan: 0"));
+	SetDlgItemText(IDC_STATIC_M_TEXT, _T("Magenta: 0"));
+	SetDlgItemText(IDC_STATIC_Y_TEXT, _T("Yellow: 0"));
+	SetDlgItemText(IDC_STATIC_K_TEXT, _T("Black: 0"));
+	SetDlgItemText(IDC_STATIC_CMYK, _T("CMYK = (0, 0, 0, 0)"));
 
 	return TRUE;
 }

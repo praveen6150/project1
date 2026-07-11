@@ -6294,7 +6294,6 @@ void Cproject1View::ApplyCmykFilter(int cOffset, int mOffset, int yOffset, int k
 	Cproject1Doc* pDoc = GetDocument();
 	if (!pDoc || pDoc->m_image.IsNull() || pDoc->m_imageOriginal.IsNull()) return;
 
-	// --- Restore pristine original into the working canvas first ---
 	pDoc->m_imageOriginal.BitBlt(pDoc->m_image.GetDC(), 0, 0, SRCCOPY);
 	pDoc->m_image.ReleaseDC();
 
@@ -6308,10 +6307,11 @@ void Cproject1View::ApplyCmykFilter(int cOffset, int mOffset, int yOffset, int k
 	int pitch = pDoc->m_image.GetPitch();
 	BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
 
-	double scaleC = cOffset / 100.0;
-	double scaleM = mOffset / 100.0;
-	double scaleY = yOffset / 100.0;
-	double scaleK = kOffset / 100.0;
+	// Convert -128..+128 slider range into a -1.0..+1.0 offset
+	double offsetC = cOffset / 128.0;
+	double offsetM = mOffset / 128.0;
+	double offsetY = yOffset / 128.0;
+	double offsetK = kOffset / 128.0;
 
 	for (int y = 0; y < height; y++)
 	{
@@ -6331,10 +6331,11 @@ void Cproject1View::ApplyCmykFilter(int cOffset, int mOffset, int yOffset, int k
 			double m = (k < 1.0) ? (1.0 - g - k) / (1.0 - k) : 0.0;
 			double y_cmyk = (k < 1.0) ? (1.0 - b - k) / (1.0 - k) : 0.0;
 
-			c *= scaleC;
-			m *= scaleM;
-			y_cmyk *= scaleY;
-			k *= scaleK;
+			// Add the offset instead of scaling, then clamp
+			c = max(0.0, min(1.0, c + offsetC));
+			m = max(0.0, min(1.0, m + offsetM));
+			y_cmyk = max(0.0, min(1.0, y_cmyk + offsetY));
+			k = max(0.0, min(1.0, k + offsetK));
 
 			double r_new = (1.0 - c) * (1.0 - k);
 			double g_new = (1.0 - m) * (1.0 - k);
@@ -6349,6 +6350,7 @@ void Cproject1View::ApplyCmykFilter(int cOffset, int mOffset, int yOffset, int k
 	Invalidate(FALSE);
 	UpdateWindow();
 }
+
 void Cproject1View::OnPointprocessCmyk()
 {
 	Cproject1Doc* pDoc = GetDocument();
