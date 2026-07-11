@@ -145,6 +145,9 @@
 #define IDC_STATIC_C_TEXT               1105
 #define IDC_STATIC_M_TEXT               1106
 #define IDC_STATIC_K_TEXT               1107
+#define IDC_SPIN2                       1111
+#define IDC_SPIN_ROTATE_ANGLE           1111
+#define IDC_EDIT_ROTATE_ANGLE           1112
 #define ID_VIEW_FITTOWINDOW             32771
 #define ID_POINT_INVERTCOLORS           32773
 #define ID_Menu                         32778
@@ -252,7 +255,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        365
 #define _APS_NEXT_COMMAND_VALUE         32882
-#define _APS_NEXT_CONTROL_VALUE         1108
+#define _APS_NEXT_CONTROL_VALUE         1113
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

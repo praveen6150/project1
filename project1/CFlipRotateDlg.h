@@ -48,8 +48,12 @@ protected:
 
     CToolTipCtrl m_toolTip;
     afx_msg BOOL OnToolTipNotify(UINT id, NMHDR* pNMHDR, LRESULT* pResult);
-
+    afx_msg void OnDeltaposSpinRotateAngle(NMHDR* pNMHDR, LRESULT* pResult);
+    //afx_msg void OnDeltaposSpinRotateAngle(NMHDR* pNMHDR, LRESULT* pResult);
 
     DECLARE_MESSAGE_MAP()
+public:
+    CSpinButtonCtrl m_ctrlAngleSpin;
+    CEdit m_ctrlAngleEdit;
 };
 

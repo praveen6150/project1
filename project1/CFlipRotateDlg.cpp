@@ -23,12 +23,15 @@ void CFlipRotateDlg::DoDataExchange(CDataExchange* pDX)
 {
     CDialogEx::DoDataExchange(pDX);
     DDX_Control(pDX, IDC_SLIDER_ANGLE, m_sliderAngle);
+    DDX_Control(pDX, IDC_SPIN_ROTATE_ANGLE, m_ctrlAngleSpin);
+    DDX_Control(pDX, IDC_EDIT_ROTATE_ANGLE, m_ctrlAngleEdit);
 }
 
 BEGIN_MESSAGE_MAP(CFlipRotateDlg, CDialogEx)
     ON_WM_HSCROLL()
     ON_BN_CLICKED(IDC_RADIO_ROTATE, &CFlipRotateDlg::OnBnClickedRadioRotate)
     ON_NOTIFY_EX(TTN_NEEDTEXT, 0, &CFlipRotateDlg::OnToolTipNotify)
+    ON_NOTIFY(UDN_DELTAPOS, IDC_SPIN_ROTATE_ANGLE, &CFlipRotateDlg::OnDeltaposSpinRotateAngle)
 END_MESSAGE_MAP()
 
 BOOL CFlipRotateDlg::OnInitDialog()
@@ -45,6 +48,13 @@ BOOL CFlipRotateDlg::OnInitDialog()
     m_toolTip.Activate(TRUE);
 
     EnableToolTips(TRUE);
+
+    m_ctrlAngleSpin.SetRange(0, 360);
+    m_ctrlAngleSpin.SetPos(0); // match the slider's starting position
+
+    CString strVal;
+    strVal.Format(_T("%d"), 0);
+    m_ctrlAngleEdit.SetWindowText(strVal);
 
     return TRUE;
 }
@@ -68,6 +78,12 @@ void CFlipRotateDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
     if (pScrollBar == (CScrollBar*)&m_sliderAngle)
     {
         m_arbitraryAngle = m_sliderAngle.GetPos();
+
+        // Keep the spin/edit control in sync with the slider
+        m_ctrlAngleSpin.SetPos(m_arbitraryAngle);
+        CString strVal;
+        strVal.Format(_T("%d"), m_arbitraryAngle);
+        m_ctrlAngleEdit.SetWindowText(strVal);
 
         if (m_pTargetView)
             m_pTargetView->SetPreviewRotationAngle((double)m_arbitraryAngle, TRUE);
@@ -135,4 +151,26 @@ BOOL CFlipRotateDlg::PreTranslateMessage(MSG* pMsg)
         m_toolTip.RelayEvent(pMsg);
 
     return CDialogEx::PreTranslateMessage(pMsg);
+}
+
+void CFlipRotateDlg::OnDeltaposSpinRotateAngle(NMHDR* pNMHDR, LRESULT* pResult)
+{
+    LPNMUPDOWN pNMUpDown = reinterpret_cast<LPNMUPDOWN>(pNMHDR);
+
+    int newAngle = pNMUpDown->iPos + pNMUpDown->iDelta;
+
+    if (newAngle < 0) newAngle = 0;
+    if (newAngle > 360) newAngle = 360;
+
+    m_sliderAngle.SetPos(newAngle);
+    m_arbitraryAngle = newAngle;
+
+    CString strVal;
+    strVal.Format(_T("%d"), newAngle);
+    m_ctrlAngleEdit.SetWindowText(strVal);
+
+    if (m_pTargetView)
+        m_pTargetView->SetPreviewRotationAngle((double)newAngle, TRUE);
+
+    *pResult = 0;
 }
