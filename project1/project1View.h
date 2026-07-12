@@ -164,6 +164,10 @@ public:
 	afx_msg void OnColorModelCmykConversion();
 	afx_msg void ApplyCmykFilter(int cOffset, int mOffset, int yOffset, int kOffset);
 	afx_msg void OnPointprocessCmyk();
+	afx_msg void OnPointprocessQuantumsim();
+	afx_msg void ApplyQuantumSim(int levels, double uncertainty);
+	afx_msg void OnPointprocessQuantumdpp();
+	afx_msg void ApplyQuantumDPP(int gridSpacing, int repulsionRadius, double entanglementStrength, int dotSize);
 };
 
 #ifndef _DEBUG  // debug version in project1View.cpp

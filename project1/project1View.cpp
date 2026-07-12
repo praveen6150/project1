@@ -49,6 +49,9 @@
 #include "CSaltPepperNoiseDlg.h"
 #include "CVignetteDlg.h"
 #include "CCmykDlg.h"
+#include "CQuantumSimDlg.h"
+#include "CQuantumDPPDlg.h"
+
 
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
 
@@ -125,6 +128,8 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_POINTPROCESS_SALTPEPPERNOISE, &Cproject1View::OnPointprocessSaltpeppernoise)
 	ON_COMMAND(ID_POINTPROCESS_VIGNETTE, &Cproject1View::OnPointprocessVignette)
 	ON_COMMAND(ID_POINTPROCESS_CMYK, &Cproject1View::OnPointprocessCmyk)
+	ON_COMMAND(ID_POINTPROCESS_QUANTUMSIM, &Cproject1View::OnPointprocessQuantumsim)
+	ON_COMMAND(ID_POINTPROCESS_QUANTUMDPP, &Cproject1View::OnPointprocessQuantumdpp)
 END_MESSAGE_MAP()
 
 Cproject1View::Cproject1View() noexcept
@@ -6407,3 +6412,322 @@ void Cproject1View::OnPointprocessCmyk()
 		Invalidate(FALSE);
 	}
 }
+
+void Cproject1View::OnPointprocessQuantumsim()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull())
+		return;
+
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp / 8 < 3)
+	{
+		AfxMessageBox(_T("This feature requires a 24-bit or 32-bit color image."));
+		return;
+	}
+
+	int height = pDoc->m_image.GetHeight();
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+	size_t totalBytes = (size_t)absPitch * height;
+
+	m_pixelBackupBuffer.resize(totalBytes);
+	BYTE* pImgBits = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pImgBits += pitch * (height - 1);
+	std::memcpy(m_pixelBackupBuffer.data(), pImgBits, totalBytes);
+
+	CQuantumSimDlg dlg(this);
+	dlg.m_pView = this;
+
+	if (dlg.DoModal() == IDOK)
+	{
+		pDoc->SetModifiedFlag(TRUE);
+		pDoc->UpdateAllViews(NULL);
+	}
+	else
+	{
+		std::memcpy(pImgBits, m_pixelBackupBuffer.data(), totalBytes);
+		pDoc->UpdateAllViews(NULL);
+	}
+}
+
+void Cproject1View::ApplyQuantumSim(int levels, double uncertainty)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull() || m_pixelBackupBuffer.empty())
+		return;
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bytesPerPixel = pDoc->m_image.GetBPP() / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+
+	BYTE* pDstBase = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pDstBase += pitch * (height - 1);
+	BYTE* pSrcBase = m_pixelBackupBuffer.data();
+
+	if (levels < 2) levels = 2;
+	double levelSize = 256.0 / levels;
+
+	std::uniform_real_distribution<double> dist(0.0, 1.0);
+
+	// Precompute a 256-entry LUT per call - since the "collapse" is random,
+	// we can't precompute a fixed LUT the way other features do (each call
+	// to this LUT-builder would need its own randomness per pixel anyway).
+	// Instead we compute the quantum-inspired collapse fresh per pixel below.
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pSrcRow = pSrcBase + (y * absPitch);
+		BYTE* pDstRow = pDstBase + (y * absPitch);
+
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pSrcPixel = pSrcRow + (x * bytesPerPixel);
+			BYTE* pDstPixel = pDstRow + (x * bytesPerPixel);
+
+			for (int c = 0; c < 3; c++) // apply independently to B, G, R
+			{
+				double value = pSrcPixel[c];
+				double position = value / levelSize;
+				int baseLevel = (int)std::floor(position);
+
+				// Candidate levels: baseLevel-1, baseLevel, baseLevel+1 (clamped)
+				int candidates[3];
+				double probs[3];
+				double probSum = 0.0;
+				int numCandidates = 0;
+
+				for (int offset = -1; offset <= 1; offset++)
+				{
+					int k = baseLevel + offset;
+					if (k < 0 || k >= levels) continue;
+
+					double diff = k - position;
+					double sigma = (uncertainty > 0.001) ? uncertainty : 0.001; // avoid divide-by-zero
+					double prob = std::exp(-(diff * diff) / (2.0 * sigma * sigma));
+
+					candidates[numCandidates] = k;
+					probs[numCandidates] = prob;
+					probSum += prob;
+					numCandidates++;
+				}
+
+				// Normalize probabilities
+				if (probSum < 1e-12) probSum = 1e-12;
+				for (int i = 0; i < numCandidates; i++)
+					probs[i] /= probSum;
+
+				// "Collapse" - weighted random selection (Born-rule-inspired)
+				double r = dist(m_noiseGenerator);
+				double cumulative = 0.0;
+				int collapsedLevel = candidates[0];
+
+				for (int i = 0; i < numCandidates; i++)
+				{
+					cumulative += probs[i];
+					if (r <= cumulative)
+					{
+						collapsedLevel = candidates[i];
+						break;
+					}
+				}
+
+				double output = collapsedLevel * levelSize + levelSize / 2.0;
+				if (output < 0.0)   output = 0.0;
+				if (output > 255.0) output = 255.0;
+
+				pDstPixel[c] = (BYTE)(output + 0.5);
+			}
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+void Cproject1View::OnPointprocessQuantumdpp()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull())
+		return;
+
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp / 8 < 3)
+	{
+		AfxMessageBox(_T("This feature requires a 24-bit or 32-bit color image."));
+		return;
+	}
+
+	int height = pDoc->m_image.GetHeight();
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+	size_t totalBytes = (size_t)absPitch * height;
+
+	m_pixelBackupBuffer.resize(totalBytes);
+	BYTE* pImgBits = (BYTE*)pDoc->m_image.GetBits();
+	if (pitch < 0) pImgBits += pitch * (height - 1);
+	std::memcpy(m_pixelBackupBuffer.data(), pImgBits, totalBytes);
+
+	CQuantumDPPDlg dlg(this);
+	dlg.m_pView = this;
+
+	if (dlg.DoModal() == IDOK)
+	{
+		pDoc->SetModifiedFlag(TRUE);
+		pDoc->UpdateAllViews(NULL);
+	}
+	else
+	{
+		std::memcpy(pImgBits, m_pixelBackupBuffer.data(), totalBytes);
+		pDoc->UpdateAllViews(NULL);
+	}
+}
+
+// Heuristic DPP-inspired stippling: places dots via weighted random
+// sampling with local repulsion (mimicking DPP-style negative correlation
+// between nearby points), plus a non-local "entangled" suppression rule
+// that instantly reduces sampling probability near the mirrored position
+// of each accepted point - a stylistic mechanic inspired by quantum
+// entanglement's non-local correlation, NOT a real quantum computation
+// or a rigorous spectral DPP sample.
+void Cproject1View::ApplyQuantumDPP(int gridSpacing, int repulsionRadius, double entanglementStrength, int dotSize)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull() || m_pixelBackupBuffer.empty())
+		return;
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bytesPerPixel = pDoc->m_image.GetBPP() / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	int absPitch = std::abs(pitch);
+	BYTE* pSrcBase = m_pixelBackupBuffer.data();
+
+	// --- Step 1: cap total candidates for performance regardless of spacing ---
+	const int MAX_CANDIDATES = 10000;
+	double idealSpacing = std::sqrt((double)(width * height) / MAX_CANDIDATES);
+	//int effectiveSpacing = (int)std::max((double)gridSpacing, std::ceil(idealSpacing));
+	int effectiveSpacing = (int)(std::max)((double)gridSpacing, std::ceil(idealSpacing));
+	if (effectiveSpacing < 2) effectiveSpacing = 2;
+
+	// --- Step 2: build weighted candidate list (darker pixels = higher weight) ---
+	struct QCandidate { int x, y; double weight; BYTE b, g, r; };
+	std::vector<QCandidate> candidates;
+
+	for (int y = 0; y < height; y += effectiveSpacing)
+	{
+		BYTE* pRow = pSrcBase + (y * absPitch);
+		for (int x = 0; x < width; x += effectiveSpacing)
+		{
+			BYTE* pPixel = pRow + (x * bytesPerPixel);
+			BYTE b = pPixel[0], g = pPixel[1], r = pPixel[2];
+			BYTE gray = (BYTE)(0.299 * r + 0.587 * g + 0.114 * b);
+
+			double weight = (255.0 - gray) / 255.0 + 0.05; // small floor so light areas still get some dots
+			candidates.push_back({ x, y, weight, b, g, r });
+		}
+	}
+
+	if (candidates.empty())
+		return;
+
+	// --- Step 3: greedy weighted sampling with repulsion + entangled suppression ---
+	std::vector<QCandidate> selectedPoints;
+	std::uniform_real_distribution<double> dist(0.0, 1.0);
+
+	double repulsionSigma = repulsionRadius / 2.0;
+	if (repulsionSigma < 0.5) repulsionSigma = 0.5;
+
+	int safetyLimit = (int)candidates.size(); // never select more points than candidates exist
+	int iterations = 0;
+
+	while (iterations < safetyLimit)
+	{
+		iterations++;
+
+		double totalWeight = 0.0;
+		for (auto& c : candidates) totalWeight += c.weight;
+		if (totalWeight < 1e-6) break; // everything sufficiently suppressed - stop
+
+		double r = dist(m_noiseGenerator) * totalWeight;
+		double cumulative = 0.0;
+		int selectedIdx = -1;
+
+		for (size_t i = 0; i < candidates.size(); i++)
+		{
+			cumulative += candidates[i].weight;
+			if (r <= cumulative) { selectedIdx = (int)i; break; }
+		}
+		if (selectedIdx < 0) selectedIdx = (int)candidates.size() - 1;
+
+		QCandidate chosen = candidates[selectedIdx];
+		selectedPoints.push_back(chosen);
+		candidates[selectedIdx].weight = 0.0;
+
+		// --- Local repulsion: suppress nearby candidates (DPP-inspired) ---
+		for (auto& c : candidates)
+		{
+			if (c.weight <= 0.0) continue;
+			double dx = c.x - chosen.x;
+			double dy = c.y - chosen.y;
+			double distSq = dx * dx + dy * dy;
+			if (distSq < (double)(repulsionRadius * repulsionRadius) * 4.0)
+			{
+				double factor = std::exp(-distSq / (2.0 * repulsionSigma * repulsionSigma));
+				c.weight *= (1.0 - factor * 0.9); // never fully zero via repulsion alone
+			}
+		}
+
+		// --- Non-local "entangled" suppression: mirror position through center ---
+		if (entanglementStrength > 0.001)
+		{
+			int mirrorX = width - 1 - chosen.x;
+			int mirrorY = height - 1 - chosen.y;
+
+			for (auto& c : candidates)
+			{
+				if (c.weight <= 0.0) continue;
+				double dx = c.x - mirrorX;
+				double dy = c.y - mirrorY;
+				double distSq = dx * dx + dy * dy;
+				if (distSq < (double)(repulsionRadius * repulsionRadius) * 4.0)
+				{
+					double factor = std::exp(-distSq / (2.0 * repulsionSigma * repulsionSigma));
+					c.weight *= (1.0 - factor * 0.9 * entanglementStrength);
+				}
+			}
+		}
+	}
+
+	// --- Step 4: render the stippled result ---
+	HDC hDC = pDoc->m_image.GetDC();
+	CDC* pDC = CDC::FromHandle(hDC);
+
+	CRect fullRect(0, 0, width, height);
+	pDC->FillSolidRect(&fullRect, RGB(255, 255, 255)); // white canvas background
+
+	for (const auto& pt : selectedPoints)
+	{
+		CBrush brush(RGB(pt.r, pt.g, pt.b));
+		CBrush* pOldBrush = pDC->SelectObject(&brush);
+		CPen pen(PS_NULL, 0, RGB(pt.r, pt.g, pt.b)); // no visible outline
+		CPen* pOldPen = pDC->SelectObject(&pen);
+
+		pDC->Ellipse(pt.x - dotSize, pt.y - dotSize, pt.x + dotSize, pt.y + dotSize);
+
+		pDC->SelectObject(pOldPen);
+		pDC->SelectObject(pOldBrush);
+	}
+
+	pDoc->m_image.ReleaseDC();
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+

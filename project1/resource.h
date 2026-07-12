@@ -35,6 +35,8 @@
 #define IDD_DIALOG4                     361
 #define IDD_VIGNETTE                    361
 #define IDD_DIALOG_CMYK                 363
+#define IDD_QUANTUM_SIM                 365
+#define IDD_QUANTUM_DPP                 367
 #define IDC_EDIT_BRIGHTNESS             1007
 #define IDC_EDIT_CONTRAST               1008
 #define IDC_STATIC_BRIGHT_TEXT          1010
@@ -119,14 +121,21 @@
 #define IDC_SLIDER_SALTPEPPER_DENSITY   1087
 #define IDC_SLIDER_VIGNETTE_STRENGTH    1087
 #define IDC_SLIDER_CYAN                 1087
+#define IDC_SLIDER_QUANTUM_LEVELS       1087
+#define IDC_SLIDER_QDPP_SPACING         1087
 #define IDC_STATIC_BINARY_THRESHOLD_VALUE 1088
 #define IDC_SLIDER_LEVELS_WHITE         1088
 #define IDC_SLIDER_SIGMOID_MIDPOINT     1088
 #define IDC_SLIDER_MAGENTA              1088
+#define IDC_SLIDER_QUANTUM_UNCERTAINTY  1088
+#define IDC_SLIDER_QDPP_REPULSION       1088
 #define IDC_SLIDER_LEVELS_GAMMA         1089
 #define IDC_SLIDER_BLACK                1089
+#define IDC_SLIDER_QDPP_ENTANGLE        1089
 #define IDC_STATIC_LEVELS_BLACK         1090
 #define IDC_SLIDER_YELLOW               1090
+#define IDC_SLIDER4                     1090
+#define IDC_SLIDER_QDPP_DOTSIZE         1090
 #define IDC_STATIC_LEVELS_WHITE         1091
 #define IDC_STATIC_LEVELS_GAMMA         1092
 #define IDC_STATIC_SIGMOID_GAIN         1093
@@ -145,9 +154,14 @@
 #define IDC_STATIC_C_TEXT               1105
 #define IDC_STATIC_M_TEXT               1106
 #define IDC_STATIC_K_TEXT               1107
-#define IDC_SPIN2                       1111
 #define IDC_SPIN_ROTATE_ANGLE           1111
 #define IDC_EDIT_ROTATE_ANGLE           1112
+#define IDC_STATIC_QUANTUM_UNCERTAINTY  1113
+#define IDC_STATIC_QUANTUM_LEVELS       1114
+#define IDC_STATIC_QDPP_SPACING         1115
+#define IDC_STATIC_QDPP_REPULSION       1116
+#define IDC_STATIC_QDPP_ENTANGLE        1117
+#define IDC_STATIC_QDPP_DOTSIZE         1118
 #define ID_VIEW_FITTOWINDOW             32771
 #define ID_POINT_INVERTCOLORS           32773
 #define ID_Menu                         32778
@@ -248,14 +262,18 @@
 #define ID_POINTTRANSFORM_CMYK          32879
 #define ID_POINTPROCESSRM_CMYK          32880
 #define ID_POINTPROCESS_CMYK            32881
+#define ID_SPECIAL_QUANTUMPOINTPROCESS  32882
+#define ID_POINTPROCESS_QUANTUMSIM      32883
+#define ID_SPECIAL_QUANTUMDPPSTIPPLING  32884
+#define ID_POINTPROCESS_QUANTUMDPP      32885
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        365
-#define _APS_NEXT_COMMAND_VALUE         32882
-#define _APS_NEXT_CONTROL_VALUE         1113
+#define _APS_NEXT_RESOURCE_VALUE        369
+#define _APS_NEXT_COMMAND_VALUE         32886
+#define _APS_NEXT_CONTROL_VALUE         1119
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

@@ -224,6 +224,8 @@
     <ClInclude Include="COtsuThresholdDlg.h" />
     <ClInclude Include="CPosterizationDlg.h" />
     <ClInclude Include="CPseudoColorDlg.h" />
+    <ClInclude Include="CQuantumDPPDlg.h" />
+    <ClInclude Include="CQuantumSimDlg.h" />
     <ClInclude Include="CSaltPepperNoiseDlg.h" />
     <ClInclude Include="CSepiaToneDlg.h" />
     <ClInclude Include="CSigmoidContrastDlg.h" />
@@ -265,6 +267,8 @@
     <ClCompile Include="COtsuThresholdDlg.cpp" />
     <ClCompile Include="CPosterizationDlg.cpp" />
     <ClCompile Include="CPseudoColorDlg.cpp" />
+    <ClCompile Include="CQuantumDPPDlg.cpp" />
+    <ClCompile Include="CQuantumSimDlg.cpp" />
     <ClCompile Include="CSaltPepperNoiseDlg.cpp" />
     <ClCompile Include="CSepiaToneDlg.cpp" />
     <ClCompile Include="CSigmoidContrastDlg.cpp" />
