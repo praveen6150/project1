@@ -53,7 +53,7 @@ BOOL CFlipRotateDlg::OnInitDialog()
     m_ctrlAngleSpin.SetPos(0); // match the slider's starting position
 
     CString strVal;
-    strVal.Format(_T("%d"), 0);
+    strVal.Format(_T("%d\xB0"), 0);
     m_ctrlAngleEdit.SetWindowText(strVal);
 
     return TRUE;
@@ -82,7 +82,7 @@ void CFlipRotateDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
         // Keep the spin/edit control in sync with the slider
         m_ctrlAngleSpin.SetPos(m_arbitraryAngle);
         CString strVal;
-        strVal.Format(_T("%d"), m_arbitraryAngle);
+        strVal.Format(_T("%d\xB0"), m_arbitraryAngle);
         m_ctrlAngleEdit.SetWindowText(strVal);
 
         if (m_pTargetView)
@@ -166,7 +166,7 @@ void CFlipRotateDlg::OnDeltaposSpinRotateAngle(NMHDR* pNMHDR, LRESULT* pResult)
     m_arbitraryAngle = newAngle;
 
     CString strVal;
-    strVal.Format(_T("%d"), newAngle);
+    strVal.Format(_T("%d\xB0"), newAngle);
     m_ctrlAngleEdit.SetWindowText(strVal);
 
     if (m_pTargetView)
