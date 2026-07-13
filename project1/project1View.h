@@ -45,6 +45,9 @@ protected:
 	virtual void OnPrepareDC(CDC* pDC, CPrintInfo* pInfo = nullptr);
 
 	// Implementation
+	template<typename Func>
+	void ProcessPixels(Func pfnPixelOp);
+
 public:
 	virtual ~Cproject1View();
 	

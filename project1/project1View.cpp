@@ -52,7 +52,6 @@
 #include "CQuantumSimDlg.h"
 #include "CQuantumDPPDlg.h"
 
-
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
 
 BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
@@ -132,6 +131,36 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_POINTPROCESS_QUANTUMDPP, &Cproject1View::OnPointprocessQuantumdpp)
 	ON_WM_MOUSEWHEEL()
 END_MESSAGE_MAP()
+
+template<typename Func>
+void Cproject1View::ProcessPixels(Func pfnPixelOp)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull()) return;
+
+	int nWidth = pDoc->m_image.GetWidth();
+	int nHeight = pDoc->m_image.GetHeight();
+	int nStride = pDoc->m_image.GetPitch();
+	BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
+
+	// Dynamically calculate bytes per pixel (3 for 24-bit, 4 for 32-bit)
+	int bytesPerPixel = pDoc->m_image.GetBPP() / 8;
+	if (bytesPerPixel < 3) return; // Skip if it's grayscale/indexed
+
+	for (int y = 0; y < nHeight; ++y)
+	{
+		BYTE* pRow = pBits + (y * nStride);
+		for (int x = 0; x < nWidth; ++x)
+		{
+			int offset = x * bytesPerPixel;
+			// Dynamically processes the correct B, G, R memory positions
+			pfnPixelOp(pRow[offset], pRow[offset + 1], pRow[offset + 2]);
+		}
+	}
+	pDoc->UpdateAllViews(NULL);
+}
+
 
 Cproject1View::Cproject1View() noexcept
 	: m_noiseGenerator((unsigned int)std::chrono::steady_clock::now().time_since_epoch().count())
@@ -603,27 +632,34 @@ void Cproject1View::OnPointprocessHsi()
 {
 	Cproject1Doc* pDoc = GetDocument();
 	ASSERT_VALID(pDoc);
-	if (!pDoc || pDoc->m_image.IsNull())
-		return;
+	if (!pDoc || pDoc->m_image.IsNull()) return;
 
-	// 1. Instantiate the HSI slider dialog frame
 	CHsiDlg dlg;
-
-	// 2. Link the dialog pointer live so it can talk back to this view canvas
 	dlg.m_pView = this;
 
-	// 3. Open the Dialog Window modally
 	if (dlg.DoModal() == IDCANCEL)
 	{
-		// If the user clicks Cancel, discard the live tweaks and restore original backup copy
+		// OPTIMIZED Cancel fallback: Restore clear original backup copy using full block copy
 		if (!pDoc->m_imageOriginal.IsNull())
 		{
-			pDoc->m_imageOriginal.BitBlt(pDoc->m_image.GetDC(), 0, 0, SRCCOPY);
-			pDoc->m_image.ReleaseDC();
-		}
+			int pitch = pDoc->m_imageOriginal.GetPitch();
+			int height = pDoc->m_imageOriginal.GetHeight();
+			BYTE* pSrcBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
+			BYTE* pDstBits = (BYTE*)pDoc->m_image.GetBits();
 
-		// Repaint back to standard state
+			if (pitch < 0)
+			{
+				BYTE* pSrcStart = pSrcBits + (pitch * (height - 1));
+				BYTE* pDstStart = pDstBits + (pitch * (height - 1));
+				memcpy(pDstStart, pSrcStart, abs(pitch) * height);
+			}
+			else
+			{
+				memcpy(pDstBits, pSrcBits, pitch * height);
+			}
+		}
 		Invalidate(FALSE);
+		UpdateWindow();
 	}
 }
 
@@ -631,38 +667,33 @@ void Cproject1View::ApplyLiveHSI(int hDeg, int sSat, int iInt)
 {
 	Cproject1Doc* pDoc = GetDocument();
 	ASSERT_VALID(pDoc);
-	if (!pDoc || pDoc->m_image.IsNull() || pDoc->m_imageOriginal.IsNull())
-		return;
+	if (!pDoc || pDoc->m_image.IsNull() || pDoc->m_imageOriginal.IsNull()) return;
 
-	// Restore original image first (same pattern as brightness/contrast)
-	pDoc->m_imageOriginal.BitBlt(pDoc->m_image.GetDC(), 0, 0, SRCCOPY);
-	pDoc->m_image.ReleaseDC();
+	// 1. Reset current live image to original data first using safe block copy
+	int pitch = pDoc->m_imageOriginal.GetPitch();
+	int height = pDoc->m_imageOriginal.GetHeight();
+	BYTE* pSrcBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
+	BYTE* pDstBits = (BYTE*)pDoc->m_image.GetBits();
 
-	int width = pDoc->m_image.GetWidth();
-	int height = pDoc->m_image.GetHeight();
-	int bpp = pDoc->m_image.GetBPP();
-	if (bpp < 24) return;
+	if (pitch < 0) {
+		memcpy(pDstBits + (pitch * (height - 1)), pSrcBits + (pitch * (height - 1)), abs(pitch) * height);
+	}
+	else {
+		memcpy(pDstBits, pSrcBits, pitch * height);
+	}
 
-	BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
-	int   pitch = pDoc->m_image.GetPitch();
-	int   bytesPerPix = bpp / 8;
+	// 2. Precalculate normalized tuning variables
+	double hueShift = hDeg / 360.0;
+	double satFactor = 1.0 + (sSat / 100.0);
+	double intOffset = (iInt / 100.0);
 
-	double hueShift = hDeg / 360.0;         // Normalize to 0.0-1.0 shift
-	double satFactor = 1.0 + (sSat / 100.0); // 0.0x to 2.0x
-	double intOffset = (iInt / 100.0);        // -1.0 to +1.0
-
-	for (int y = 0; y < height; y++)
-	{
-		BYTE* pRow = pBits + (y * pitch);
-
-		for (int x = 0; x < width; x++)
+	// 3. Fire up the high-speed processing template with an in-place Lambda!
+	ProcessPixels([=](BYTE& b, BYTE& g, BYTE& r)
 		{
-			BYTE* pPixel = pRow + (x * bytesPerPix);
-
-			// Read BGR
-			double B = pPixel[0] / 255.0;
-			double G = pPixel[1] / 255.0;
-			double R = pPixel[2] / 255.0;
+			// Read and normalize BGR channel values
+			double B = b / 255.0;
+			double G = g / 255.0;
+			double R = r / 255.0;
 
 			// --- RGB to HSI ---
 			double maxC = max(R, max(G, B));
@@ -673,20 +704,15 @@ void Cproject1View::ApplyLiveHSI(int hDeg, int sSat, int iInt)
 			double I = (R + G + B) / 3.0;
 
 			// Saturation
-			double S = (I > 0.0) ? (1.0 - (minC / I) / 3.0 * 3.0) : 0.0;
-			// Simpler S:
-			S = (I > 0.0) ? (delta / (maxC + 0.0001)) : 0.0;
+			double S = (I > 0.0) ? (delta / (maxC + 0.0001)) : 0.0;
 
 			// Hue (0.0 to 1.0)
 			double H = 0.0;
 			if (delta > 0.0001)
 			{
-				if (maxC == R)
-					H = fmod((G - B) / delta, 6.0) / 6.0;
-				else if (maxC == G)
-					H = ((B - R) / delta + 2.0) / 6.0;
-				else
-					H = ((R - G) / delta + 4.0) / 6.0;
+				if (maxC == R)       H = fmod((G - B) / delta, 6.0) / 6.0;
+				else if (maxC == G)  H = ((B - R) / delta + 2.0) / 6.0;
+				else                 H = ((R - G) / delta + 4.0) / 6.0;
 
 				if (H < 0.0) H += 1.0;
 			}
@@ -697,12 +723,10 @@ void Cproject1View::ApplyLiveHSI(int hDeg, int sSat, int iInt)
 			if (H < 0.0) H += 1.0;
 
 			S = max(0.0, min(1.0, S * satFactor));
-
 			I = max(0.0, min(1.0, I + intOffset));
 
 			// --- HSI back to RGB ---
 			double newR, newG, newB;
-
 			if (S == 0.0)
 			{
 				newR = newG = newB = I;
@@ -718,26 +742,25 @@ void Cproject1View::ApplyLiveHSI(int hDeg, int sSat, int iInt)
 
 				switch (hi)
 				{
-				case 0: newR = I; newG = t; newB = p; break;
-				case 1: newR = q; newG = I; newB = p; break;
-				case 2: newR = p; newG = I; newB = t; break;
-				case 3: newR = p; newG = q; newB = I; break;
-				case 4: newR = t; newG = p; newB = I; break;
+				case 0:  newR = I; newG = t; newB = p; break;
+				case 1:  newR = q; newG = I; newB = p; break;
+				case 2:  newR = p; newG = I; newB = t; break;
+				case 3:  newR = p; newG = q; newB = I; break;
+				case 4:  newR = t; newG = p; newB = I; break;
 				default: newR = I; newG = p; newB = q; break;
 				}
 			}
 
-			// Write BGR back
-			pPixel[0] = (BYTE)max(0.0, min(255.0, newB * 255.0));
-			pPixel[1] = (BYTE)max(0.0, min(255.0, newG * 255.0));
-			pPixel[2] = (BYTE)max(0.0, min(255.0, newR * 255.0));
-			// Leave Alpha (pPixel[3]) untouched for 32-bit images
-		}
-	}
+			// Write modified channels directly back through our references
+			b = (BYTE)max(0.0, min(255.0, newB * 255.0));
+			g = (BYTE)max(0.0, min(255.0, newG * 255.0));
+			r = (BYTE)max(0.0, min(255.0, newR * 255.0));
+		});
 
 	Invalidate(FALSE);
 	UpdateWindow();
 }
+
 void Cproject1View::OnPointprocessLuminance()
 {
 	// TODO: Add your command handler code here
@@ -1179,22 +1202,24 @@ void Cproject1View::OnPointprocessSolarization()
 	}
 	else
 	{
-		// User clicked Cancel: Safely copy m_imageOriginal back to m_image row-by-row
+		// OPTIMIZED Cancel fallback: Safe single-block copy handling both top-down and bottom-up bitmaps
+		int pitch = pDoc->m_imageOriginal.GetPitch();
+		int height = pDoc->m_imageOriginal.GetHeight();
+
 		BYTE* pSrcBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
 		BYTE* pDstBits = (BYTE*)pDoc->m_image.GetBits();
-		int width = pDoc->m_imageOriginal.GetWidth();
-		int height = pDoc->m_imageOriginal.GetHeight();
-		int pitch = pDoc->m_imageOriginal.GetPitch();
-		int bytesPerPixel = pDoc->m_imageOriginal.GetBPP() / 8;
 
-		// Loop through every single row to cleanly overwrite the modified live image
-		for (int y = 0; y < height; y++)
+		if (pitch < 0)
 		{
-			BYTE* pSrcRow = pSrcBits + (y * pitch);
-			BYTE* pDstRow = pDstBits + (y * pitch);
-
-			// Copy the exact bytes for this specific row safely
-			memcpy(pDstRow, pSrcRow, width * bytesPerPixel);
+			// Move pointers to the absolute lowest memory address for bottom-up bitmaps
+			BYTE* pSrcStart = pSrcBits + (pitch * (height - 1));
+			BYTE* pDstStart = pDstBits + (pitch * (height - 1));
+			memcpy(pDstStart, pSrcStart, abs(pitch) * height);
+		}
+		else
+		{
+			// Standard top-down layout
+			memcpy(pDstBits, pSrcBits, pitch * height);
 		}
 
 		// Redraw the view canvas back to its original clean state
@@ -1209,18 +1234,10 @@ void Cproject1View::ApplyLiveSolarization(int threshold)
 
 	Cproject1Doc* pDoc = GetDocument();
 	ASSERT_VALID(pDoc);
-	if (!pDoc) return;
+	if (!pDoc || pDoc->m_imageOriginal.IsNull() || pDoc->m_image.IsNull()) return;
 
-	if (pDoc->m_imageOriginal.IsNull() || pDoc->m_image.IsNull()) return;
-
-	BYTE* pSrcBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
-	BYTE* pDstBits = (BYTE*)pDoc->m_image.GetBits();
-	int width = pDoc->m_imageOriginal.GetWidth();
-	int height = pDoc->m_imageOriginal.GetHeight();
-
-	// FIX: Use the raw pitch (which can be negative) to safely navigate bottom-up bitmaps
-	int pitch = pDoc->m_imageOriginal.GetPitch();
 	int bytesPerPixel = pDoc->m_imageOriginal.GetBPP() / 8;
+	if (bytesPerPixel < 3) return; // Only operate if color image
 
 	// Generate Look-Up Table (LUT)
 	BYTE lut[256];
@@ -1238,27 +1255,35 @@ void Cproject1View::ApplyLiveSolarization(int threshold)
 		}
 	}
 
-	// Safe point-processing loop using correct pitch tracking alignment
-	for (int y = 0; y < height; y++)
+	int nWidth = pDoc->m_imageOriginal.GetWidth();
+	int nHeight = pDoc->m_imageOriginal.GetHeight();
+	int nPitch = pDoc->m_imageOriginal.GetPitch();
+
+	BYTE* pSrcBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
+	BYTE* pDstBits = (BYTE*)pDoc->m_image.GetBits();
+
+	// Compact row runner with register-friendly indexing
+	for (int y = 0; y < nHeight; ++y)
 	{
-		// FIX: Multiplying by raw pitch ensures correct pointer stepping directions
-		BYTE* pSrcRow = pSrcBits + (y * pitch);
-		BYTE* pDstRow = pDstBits + (y * pitch);
+		BYTE* pSrcRow = pSrcBits + (y * nPitch);
+		BYTE* pDstRow = pDstBits + (y * nPitch);
 
-		for (int x = 0; x < width; x++)
+		for (int x = 0; x < nWidth; ++x)
 		{
-			BYTE* pSrcPixel = pSrcRow + (x * bytesPerPixel);
-			BYTE* pDstPixel = pDstRow + (x * bytesPerPixel);
-
-			pDstPixel[0] = lut[pSrcPixel[0]]; // Blue
-			pDstPixel[1] = lut[pSrcPixel[1]]; // Green
-			pDstPixel[2] = lut[pSrcPixel[2]]; // Red
+			int offset = x * bytesPerPixel;
+			pDstRow[offset] = lut[pSrcRow[offset]];     // Blue
+			pDstRow[offset + 1] = lut[pSrcRow[offset + 1]]; // Green
+			pDstRow[offset + 2] = lut[pSrcRow[offset + 2]]; // Red
 		}
 	}
 
 	Invalidate(FALSE);
 	UpdateWindow();
 }
+
+
+
+
 void Cproject1View::ApplyLivePosterization(int levels)
 {
 	if (levels < 2) levels = 2;
@@ -1511,7 +1536,6 @@ void Cproject1View::ApplyLiveContrastStretch(int minVal, int maxVal)
 	UpdateWindow();
 }
 
-
 void Cproject1View::OnPointprocessColorbalance()
 {
 	Cproject1Doc* pDoc = GetDocument();
@@ -1528,17 +1552,25 @@ void Cproject1View::OnPointprocessColorbalance()
 	}
 	else
 	{
-		// Cancel fallback: Restore clear original backup copies
+		// Safe single-block copy handling both top-down and bottom-up bitmaps
+		int pitch = pDoc->m_imageOriginal.GetPitch();
+		int height = pDoc->m_imageOriginal.GetHeight();
+
 		BYTE* pSrcBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
 		BYTE* pDstBits = (BYTE*)pDoc->m_image.GetBits();
-		int width = pDoc->m_imageOriginal.GetWidth();
-		int height = pDoc->m_imageOriginal.GetHeight();
-		int pitch = pDoc->m_imageOriginal.GetPitch();
-		int bytesPerPixel = pDoc->m_imageOriginal.GetBPP() / 8;
 
-		for (int y = 0; y < height; y++)
+		if (pitch < 0)
 		{
-			memcpy(pDstBits + (y * pitch), pSrcBits + (y * pitch), width * bytesPerPixel);
+			// For bottom-up images, GetBits() points to the start of the last row.
+			// We move the pointers to the absolute lowest memory address before copying.
+			BYTE* pSrcStart = pSrcBits + (pitch * (height - 1));
+			BYTE* pDstStart = pDstBits + (pitch * (height - 1));
+			memcpy(pDstStart, pSrcStart, abs(pitch) * height);
+		}
+		else
+		{
+			// Standard top-down layout
+			memcpy(pDstBits, pSrcBits, pitch * height);
 		}
 
 		Invalidate(FALSE);
@@ -1552,17 +1584,10 @@ void Cproject1View::ApplyLiveColorBalance(int deltaR, int deltaG, int deltaB)
 	ASSERT_VALID(pDoc);
 	if (!pDoc || pDoc->m_imageOriginal.IsNull() || pDoc->m_image.IsNull()) return;
 
-	BYTE* pSrcBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
-	BYTE* pDstBits = (BYTE*)pDoc->m_image.GetBits();
-	int width = pDoc->m_imageOriginal.GetWidth();
-	int height = pDoc->m_imageOriginal.GetHeight();
-	int pitch = pDoc->m_imageOriginal.GetPitch();
 	int bytesPerPixel = pDoc->m_imageOriginal.GetBPP() / 8;
+	if (bytesPerPixel < 3) return; // Only operate if color image
 
-	// Only operate if it's a color image (24-bit or 32-bit)
-	if (bytesPerPixel < 3) return;
-
-	// Precalculate 3 fast LUT arrays with clamping logic
+	// 1. Precalculate your fast LUT arrays with clamping logic
 	BYTE lutR[256], lutG[256], lutB[256];
 	for (int i = 0; i < 256; i++)
 	{
@@ -1575,20 +1600,26 @@ void Cproject1View::ApplyLiveColorBalance(int deltaR, int deltaG, int deltaB)
 		lutB[i] = (BYTE)(valB < 0 ? 0 : (valB > 255 ? 255 : valB));
 	}
 
-	// Process rows
-	for (int y = 0; y < height; y++)
+	// 2. Utilize our core metrics
+	int nWidth = pDoc->m_imageOriginal.GetWidth();
+	int nHeight = pDoc->m_imageOriginal.GetHeight();
+	int nPitch = pDoc->m_imageOriginal.GetPitch();
+
+	BYTE* pSrcBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
+	BYTE* pDstBits = (BYTE*)pDoc->m_image.GetBits();
+
+	// 3. Compact row runner
+	for (int y = 0; y < nHeight; ++y)
 	{
-		BYTE* pSrcRow = pSrcBits + (y * pitch);
-		BYTE* pDstRow = pDstBits + (y * pitch);
+		BYTE* pSrcRow = pSrcBits + (y * nPitch);
+		BYTE* pDstRow = pDstBits + (y * nPitch);
 
-		for (int x = 0; x < width; x++)
+		for (int x = 0; x < nWidth; ++x)
 		{
-			BYTE* pSrcPixel = pSrcRow + (x * bytesPerPixel);
-			BYTE* pDstPixel = pDstRow + (x * bytesPerPixel);
-
-			pDstPixel[0] = lutB[pSrcPixel[0]]; // Blue channel shift
-			pDstPixel[1] = lutG[pSrcPixel[1]]; // Green channel shift
-			pDstPixel[2] = lutR[pSrcPixel[2]]; // Red channel shift
+			// Direct indexing eliminates extra pixel pointer arithmetic calculations 
+			pDstRow[x * bytesPerPixel] = lutB[pSrcRow[x * bytesPerPixel]];
+			pDstRow[x * bytesPerPixel + 1] = lutG[pSrcRow[x * bytesPerPixel + 1]];
+			pDstRow[x * bytesPerPixel + 2] = lutR[pSrcRow[x * bytesPerPixel + 2]];
 		}
 	}
 
@@ -4399,60 +4430,47 @@ void Cproject1View::ApplyLiveHSV(int hDeg, int sSat, int vVal)
 {
 	Cproject1Doc* pDoc = GetDocument();
 	ASSERT_VALID(pDoc);
-	if (!pDoc || pDoc->m_image.IsNull() || pDoc->m_imageOriginal.IsNull())
-		return;
+	if (!pDoc || pDoc->m_image.IsNull() || pDoc->m_imageOriginal.IsNull()) return;
 
-	// Restore original image first
-	pDoc->m_imageOriginal.BitBlt(pDoc->m_image.GetDC(), 0, 0, SRCCOPY);
-	pDoc->m_image.ReleaseDC();
+	// 1. Reset current working canvas from pristine copy via raw memory block block copy
+	int pitch = pDoc->m_imageOriginal.GetPitch();
+	int height = pDoc->m_imageOriginal.GetHeight();
+	BYTE* pSrcBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
+	BYTE* pDstBits = (BYTE*)pDoc->m_image.GetBits();
 
-	int width = pDoc->m_image.GetWidth();
-	int height = pDoc->m_image.GetHeight();
-	int bpp = pDoc->m_image.GetBPP();
-	if (bpp < 24) return;
+	if (pitch < 0) {
+		memcpy(pDstBits + (pitch * (height - 1)), pSrcBits + (pitch * (height - 1)), abs(pitch) * height);
+	}
+	else {
+		memcpy(pDstBits, pSrcBits, pitch * height);
+	}
 
-	BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
-	int   pitch = pDoc->m_image.GetPitch();
-	int   bytesPerPix = bpp / 8;
+	// 2. Precalculate normalized tuning inputs
+	double hueShift = hDeg / 360.0;
+	double satFactor = 1.0 + (sSat / 100.0);
+	double valOffset = (vVal / 100.0);
 
-	double hueShift = hDeg / 360.0;         // Normalize to 0.0 - 1.0 shift
-	double satFactor = 1.0 + (sSat / 100.0); // 0.0x to 2.0x
-	double valOffset = (vVal / 100.0);        // -1.0 to +1.0
-
-	for (int y = 0; y < height; y++)
-	{
-		BYTE* pRow = pBits + (y * pitch);
-
-		for (int x = 0; x < width; x++)
+	// 3. Process via high-speed engine lambda transformation
+	ProcessPixels([=](BYTE& b, BYTE& g, BYTE& r)
 		{
-			BYTE* pPixel = pRow + (x * bytesPerPix);
-
-			// Read BGR normalized to 0.0 - 1.0
-			double B = pPixel[0] / 255.0;
-			double G = pPixel[1] / 255.0;
-			double R = pPixel[2] / 255.0;
+			double B = b / 255.0;
+			double G = g / 255.0;
+			double R = r / 255.0;
 
 			// --- RGB to HSV ---
 			double maxC = max(R, max(G, B));
 			double minC = min(R, min(G, B));
 			double delta = maxC - minC;
 
-			// Value is simply the maximum component
 			double V = maxC;
-
-			// Saturation
 			double S = (V > 0.0001) ? (delta / V) : 0.0;
 
-			// Hue (0.0 to 1.0)
 			double H = 0.0;
 			if (delta > 0.0001)
 			{
-				if (maxC == R)
-					H = fmod((G - B) / delta, 6.0) / 6.0;
-				else if (maxC == G)
-					H = ((B - R) / delta + 2.0) / 6.0;
-				else
-					H = ((R - G) / delta + 4.0) / 6.0;
+				if (maxC == R)      H = fmod((G - B) / delta, 6.0) / 6.0;
+				else if (maxC == G) H = ((B - R) / delta + 2.0) / 6.0;
+				else                H = ((R - G) / delta + 4.0) / 6.0;
 
 				if (H < 0.0) H += 1.0;
 			}
@@ -4467,7 +4485,6 @@ void Cproject1View::ApplyLiveHSV(int hDeg, int sSat, int vVal)
 
 			// --- HSV back to RGB ---
 			double newR, newG, newB;
-
 			if (S == 0.0)
 			{
 				newR = newG = newB = V;
@@ -4483,21 +4500,19 @@ void Cproject1View::ApplyLiveHSV(int hDeg, int sSat, int vVal)
 
 				switch (hi)
 				{
-				case 0: newR = V; newG = t; newB = p; break;
-				case 1: newR = q; newG = V; newB = p; break;
-				case 2: newR = p; newG = V; newB = t; break;
-				case 3: newR = p; newG = q; newB = V; break;
-				case 4: newR = t; newG = p; newB = V; break;
+				case 0:  newR = V; newG = t; newB = p; break;
+				case 1:  newR = q; newG = V; newB = p; break;
+				case 2:  newR = p; newG = V; newB = t; break;
+				case 3:  newR = p; newG = q; newB = V; break;
+				case 4:  newR = t; newG = p; newB = V; break;
 				default: newR = V; newG = p; newB = q; break;
 				}
 			}
 
-			// Write BGR back to byte stream
-			pPixel[0] = (BYTE)max(0.0, min(255.0, newB * 255.0));
-			pPixel[1] = (BYTE)max(0.0, min(255.0, newG * 255.0));
-			pPixel[2] = (BYTE)max(0.0, min(255.0, newR * 255.0));
-		}
-	}
+			b = (BYTE)max(0.0, min(255.0, newB * 255.0));
+			g = (BYTE)max(0.0, min(255.0, newG * 255.0));
+			r = (BYTE)max(0.0, min(255.0, newR * 255.0));
+		});
 
 	Invalidate(FALSE);
 	UpdateWindow();
@@ -4532,16 +4547,17 @@ void Cproject1View::ApplyLiveHSVPreview(int hDeg, int sSat, int vVal, CImage* pS
 	double satFactor = 1.0 + (sSat / 100.0);
 	double valOffset = (vVal / 100.0);
 
-	for (int y = 0; y < prevH; y++)
+	// High-speed index tracking loop for preview window bounds
+	for (int y = 0; y < prevH; ++y)
 	{
 		BYTE* pRow = pBits + (y * pitch);
-		for (int x = 0; x < prevW; x++)
+		for (int x = 0; x < prevW; ++x)
 		{
-			BYTE* pPixel = pRow + (x * bytesPerPix);
+			int offset = x * bytesPerPix;
 
-			double B = pPixel[0] / 255.0;
-			double G = pPixel[1] / 255.0;
-			double R = pPixel[2] / 255.0;
+			double B = pRow[offset] / 255.0;
+			double G = pRow[offset + 1] / 255.0;
+			double R = pRow[offset + 2] / 255.0;
 
 			double maxC = max(R, max(G, B));
 			double minC = min(R, min(G, B));
@@ -4553,7 +4569,7 @@ void Cproject1View::ApplyLiveHSVPreview(int hDeg, int sSat, int vVal, CImage* pS
 
 			if (delta > 0.0001)
 			{
-				if (maxC == R) H = fmod((G - B) / delta, 6.0) / 6.0;
+				if (maxC == R)      H = fmod((G - B) / delta, 6.0) / 6.0;
 				else if (maxC == G) H = ((B - R) / delta + 2.0) / 6.0;
 				else                H = ((R - G) / delta + 4.0) / 6.0;
 				if (H < 0.0) H += 1.0;
@@ -4582,18 +4598,18 @@ void Cproject1View::ApplyLiveHSVPreview(int hDeg, int sSat, int vVal, CImage* pS
 
 				switch (hi)
 				{
-				case 0: newR = V; newG = t; newB = p; break;
-				case 1: newR = q; newG = V; newB = p; break;
-				case 2: newR = p; newG = V; newB = t; break;
-				case 3: newR = p; newG = q; newB = V; break;
-				case 4: newR = t; newG = p; newB = V; break;
-				default:newR = V; newG = p; newB = q; break;
+				case 0:  newR = V; newG = t; newB = p; break;
+				case 1:  newR = q; newG = V; newB = p; break;
+				case 2:  newR = p; newG = V; newB = t; break;
+				case 3:  newR = p; newG = q; newB = V; break;
+				case 4:  newR = t; newG = p; newB = V; break;
+				default: newR = V; newG = p; newB = q; break;
 				}
 			}
 
-			pPixel[0] = (BYTE)max(0.0, min(255.0, newB * 255.0));
-			pPixel[1] = (BYTE)max(0.0, min(255.0, newG * 255.0));
-			pPixel[2] = (BYTE)max(0.0, min(255.0, newR * 255.0));
+			pRow[offset] = (BYTE)max(0.0, min(255.0, newB * 255.0));
+			pRow[offset + 1] = (BYTE)max(0.0, min(255.0, newG * 255.0));
+			pRow[offset + 2] = (BYTE)max(0.0, min(255.0, newR * 255.0));
 		}
 	}
 
@@ -4608,32 +4624,40 @@ void Cproject1View::ApplyLiveHSVPreview(int hDeg, int sSat, int vVal, CImage* pS
 	pSmallImg->ReleaseDC();
 }
 
-
 void Cproject1View::OnColorsHsvadjustment()
 {
-		Cproject1Doc* pDoc = GetDocument();
-		ASSERT_VALID(pDoc);
-		if (!pDoc || pDoc->m_image.IsNull())
+	Cproject1Doc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc || pDoc->m_image.IsNull())
+	{
+		AfxMessageBox(_T("No active image found to process!"));
+		return;
+	}
+
+	CHsvDlg dlg(this);
+	dlg.m_pView = this;
+
+	if (dlg.DoModal() == IDCANCEL)
+	{
+		// OPTIMIZED: Revert working image back via safe, fast full memory-block copy
+		if (!pDoc->m_imageOriginal.IsNull())
 		{
-			AfxMessageBox(_T("No active image found to process!"));
-			return;
+			int pitch = pDoc->m_imageOriginal.GetPitch();
+			int height = pDoc->m_imageOriginal.GetHeight();
+			BYTE* pSrcBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
+			BYTE* pDstBits = (BYTE*)pDoc->m_image.GetBits();
+
+			if (pitch < 0) {
+				memcpy(pDstBits + (pitch * (height - 1)), pSrcBits + (pitch * (height - 1)), abs(pitch) * height);
+			}
+			else {
+				memcpy(pDstBits, pSrcBits, pitch * height);
+			}
 		}
-	
-		// Create the dialog instance and pass it this view's context
-		CHsvDlg dlg(this);
-		dlg.m_pView = this;
-	
-		// Open the dialog box as a modal window
-		if (dlg.DoModal() == IDCANCEL)
-		{
-			// Revert the working image back to the pristine original copy if user cancels
-			pDoc->m_imageOriginal.BitBlt(pDoc->m_image.GetDC(), 0, 0, SRCCOPY);
-			pDoc->m_image.ReleaseDC();
-	
-			// Force a visual window redraw
-			Invalidate(FALSE);
-			UpdateWindow();
-		}
+
+		Invalidate(FALSE);
+		UpdateWindow();
+	}
 }
 
 void Cproject1View::OnPointprocessConverttograyscale()
@@ -6425,8 +6449,7 @@ void Cproject1View::OnPointprocessQuantumsim()
 {
 	Cproject1Doc* pDoc = GetDocument();
 	ASSERT_VALID(pDoc);
-	if (!pDoc || pDoc->m_image.IsNull())
-		return;
+	if (!pDoc || pDoc->m_image.IsNull()) return;
 
 	int bpp = pDoc->m_image.GetBPP();
 	if (bpp / 8 < 3)
@@ -6464,8 +6487,7 @@ void Cproject1View::ApplyQuantumSim(int levels, double uncertainty)
 {
 	Cproject1Doc* pDoc = GetDocument();
 	ASSERT_VALID(pDoc);
-	if (!pDoc || pDoc->m_image.IsNull() || m_pixelBackupBuffer.empty())
-		return;
+	if (!pDoc || pDoc->m_image.IsNull() || m_pixelBackupBuffer.empty()) return;
 
 	int width = pDoc->m_image.GetWidth();
 	int height = pDoc->m_image.GetHeight();
@@ -6479,67 +6501,74 @@ void Cproject1View::ApplyQuantumSim(int levels, double uncertainty)
 
 	if (levels < 2) levels = 2;
 	double levelSize = 256.0 / levels;
+	double sigma = (uncertainty > 0.001) ? uncertainty : 0.001;
+
+	// 1. PRECOMPUTE WAVE FUNCTION LUT MATRIX
+	// For every possible input intensity value (0-255), precalculate candidates and normalized ranges
+	int lutNumCandidates[256];
+	int lutCandidates[256][3];
+	double lutProbs[256][3];
+
+	for (int i = 0; i < 256; ++i)
+	{
+		double position = i / levelSize;
+		int baseLevel = (int)std::floor(position);
+		double probSum = 0.0;
+		int numC = 0;
+
+		for (int offset = -1; offset <= 1; ++offset)
+		{
+			int k = baseLevel + offset;
+			if (k < 0 || k >= levels) continue;
+
+			double diff = k - position;
+			double prob = std::exp(-(diff * diff) / (2.0 * sigma * sigma));
+
+			lutCandidates[i][numC] = k;
+			lutProbs[i][numC] = prob;
+			probSum += prob;
+			numC++;
+		}
+
+		if (probSum < 1e-12) probSum = 1e-12;
+
+		// Normalize and transform to cumulative probabilities to save calculation inside the loop
+		double cumulative = 0.0;
+		for (int cIdx = 0; cIdx < numC; ++cIdx)
+		{
+			cumulative += (lutProbs[i][cIdx] / probSum);
+			lutProbs[i][cIdx] = cumulative;
+		}
+		lutNumCandidates[i] = numC;
+	}
 
 	std::uniform_real_distribution<double> dist(0.0, 1.0);
 
-	// Precompute a 256-entry LUT per call - since the "collapse" is random,
-	// we can't precompute a fixed LUT the way other features do (each call
-	// to this LUT-builder would need its own randomness per pixel anyway).
-	// Instead we compute the quantum-inspired collapse fresh per pixel below.
-
-	for (int y = 0; y < height; y++)
+	// 2. OPTIMIZED PIXEL RUNNER
+	for (int y = 0; y < height; ++y)
 	{
 		BYTE* pSrcRow = pSrcBase + (y * absPitch);
 		BYTE* pDstRow = pDstBase + (y * absPitch);
 
-		for (int x = 0; x < width; x++)
+		for (int x = 0; x < width; ++x)
 		{
-			BYTE* pSrcPixel = pSrcRow + (x * bytesPerPixel);
-			BYTE* pDstPixel = pDstRow + (x * bytesPerPixel);
+			int offset = x * bytesPerPixel;
 
-			for (int c = 0; c < 3; c++) // apply independently to B, G, R
+			// Handle B, G, R components directly 
+			for (int c = 0; c < 3; ++c)
 			{
-				double value = pSrcPixel[c];
-				double position = value / levelSize;
-				int baseLevel = (int)std::floor(position);
+				BYTE inputVal = pSrcRow[offset + c];
+				int numC = lutNumCandidates[inputVal];
 
-				// Candidate levels: baseLevel-1, baseLevel, baseLevel+1 (clamped)
-				int candidates[3];
-				double probs[3];
-				double probSum = 0.0;
-				int numCandidates = 0;
-
-				for (int offset = -1; offset <= 1; offset++)
-				{
-					int k = baseLevel + offset;
-					if (k < 0 || k >= levels) continue;
-
-					double diff = k - position;
-					double sigma = (uncertainty > 0.001) ? uncertainty : 0.001; // avoid divide-by-zero
-					double prob = std::exp(-(diff * diff) / (2.0 * sigma * sigma));
-
-					candidates[numCandidates] = k;
-					probs[numCandidates] = prob;
-					probSum += prob;
-					numCandidates++;
-				}
-
-				// Normalize probabilities
-				if (probSum < 1e-12) probSum = 1e-12;
-				for (int i = 0; i < numCandidates; i++)
-					probs[i] /= probSum;
-
-				// "Collapse" - weighted random selection (Born-rule-inspired)
+				// Roll the quantum dice
 				double r = dist(m_noiseGenerator);
-				double cumulative = 0.0;
-				int collapsedLevel = candidates[0];
+				int collapsedLevel = lutCandidates[inputVal][0];
 
-				for (int i = 0; i < numCandidates; i++)
+				for (int i = 0; i < numC; ++i)
 				{
-					cumulative += probs[i];
-					if (r <= cumulative)
+					if (r <= lutProbs[inputVal][i])
 					{
-						collapsedLevel = candidates[i];
+						collapsedLevel = lutCandidates[inputVal][i];
 						break;
 					}
 				}
@@ -6548,7 +6577,7 @@ void Cproject1View::ApplyQuantumSim(int levels, double uncertainty)
 				if (output < 0.0)   output = 0.0;
 				if (output > 255.0) output = 255.0;
 
-				pDstPixel[c] = (BYTE)(output + 0.5);
+				pDstRow[offset + c] = (BYTE)(output + 0.5);
 			}
 		}
 	}
