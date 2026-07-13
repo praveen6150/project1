@@ -17,6 +17,7 @@ protected: // create from serialization only
 	BOOL   m_bPreviewRotationActive = FALSE;
 	double m_previewRotationAngle = 0.0;
 	std::mt19937 m_noiseGenerator;
+	double m_zoomFactor = 1.0;
 	// Attributes
 public:
 	Cproject1Doc* GetDocument() const;
@@ -40,6 +41,7 @@ protected:
 	virtual void OnBeginPrinting(CDC* pDC, CPrintInfo* pInfo);
 	virtual void OnEndPrinting(CDC* pDC, CPrintInfo* pInfo);
 	virtual void OnPrepareDC(CDC* pDC, CPrintInfo* pInfo = nullptr);
+
 	// Implementation
 public:
 	virtual ~Cproject1View();
@@ -55,6 +57,7 @@ protected:
 	void RotateArbitrary(double angleDegrees);
 	void RotateImageArbitrary(CImage& img, double angleDegrees);
 	int ComputeOtsuThreshold(const std::vector<int>& histogram, int totalPixels);
+	afx_msg BOOL OnMouseWheel(UINT nFlags, short zDelta, CPoint pt);
 protected:
 	//afx_msg void OnColorsHsvadjustment();
 	DECLARE_MESSAGE_MAP()

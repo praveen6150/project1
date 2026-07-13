@@ -130,6 +130,7 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_POINTPROCESS_CMYK, &Cproject1View::OnPointprocessCmyk)
 	ON_COMMAND(ID_POINTPROCESS_QUANTUMSIM, &Cproject1View::OnPointprocessQuantumsim)
 	ON_COMMAND(ID_POINTPROCESS_QUANTUMDPP, &Cproject1View::OnPointprocessQuantumdpp)
+	ON_WM_MOUSEWHEEL()
 END_MESSAGE_MAP()
 
 Cproject1View::Cproject1View() noexcept
@@ -219,28 +220,36 @@ void Cproject1View::OnDraw(CDC* pDC)
 	}
 	else
 	{
-		//pDoc->m_image.BitBlt(memDC.GetSafeHdc(), 0, 0, SRCCOPY);
 		CPoint scrollPos = GetScrollPosition();
 
 		int imgWidth = pDoc->m_image.GetWidth();
 		int imgHeight = pDoc->m_image.GetHeight();
 
-		// Figure out how much of the image is actually visible from this
-		// scroll position, so we don't try to copy past the image's edges
-		int srcW = min(rectClient.Width(), imgWidth - scrollPos.x);
-		int srcH = min(rectClient.Height(), imgHeight - scrollPos.y);
+		// Which portion of the SOURCE IMAGE is visible, accounting for zoom
+		double srcX = scrollPos.x / m_zoomFactor;
+		double srcY = scrollPos.y / m_zoomFactor;
+		double srcW = rectClient.Width() / m_zoomFactor;
+		double srcH = rectClient.Height() / m_zoomFactor;
 
-		if (srcW > 0 && srcH > 0)
+		// Clamp so we never read past the image's actual bounds
+		if (srcX + srcW > imgWidth)  srcW = imgWidth - srcX;
+		if (srcY + srcH > imgHeight) srcH = imgHeight - srcY;
+
+		if (srcW > 0 && srcH > 0 && srcX < imgWidth && srcY < imgHeight)
 		{
-			pDoc->m_image.BitBlt(
+			int destW = (int)(srcW * m_zoomFactor);
+			int destH = (int)(srcH * m_zoomFactor);
+
+			memDC.SetStretchBltMode(COLORONCOLOR);
+			pDoc->m_image.StretchBlt(
 				memDC.GetSafeHdc(),
-				0, 0,                 // destination position in memDC (always top-left of buffer)
-				srcW, srcH,            // how much to copy
-				scrollPos.x, scrollPos.y, // WHERE in the source image to start copying from
+				0, 0, destW, destH,
+				(int)srcX, (int)srcY, (int)srcW, (int)srcH,
 				SRCCOPY
 			);
 		}
 	}
+
 
 	// 4. Single hardware copy to physical display instantly (Zero Flicker)
 	pDC->BitBlt(0, 0, rectClient.Width(), rectClient.Height(), &memDC, 0, 0, SRCCOPY);
@@ -352,6 +361,7 @@ void Cproject1View::OnInitialUpdate()
 		{
 			// Small image → 1:1 native pixel mode
 			m_bFitToWindow = FALSE;
+			m_zoomFactor = 1.0;
 			SetScrollSizes(MM_TEXT, CSize(imgW, imgH));
 			ResizeParentToFit(TRUE);
 		}
@@ -6731,3 +6741,52 @@ void Cproject1View::ApplyQuantumDPP(int gridSpacing, int repulsionRadius, double
 	UpdateWindow();
 }
 
+BOOL Cproject1View::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_image.IsNull())
+		return CScrollView::OnMouseWheel(nFlags, zDelta, pt);
+
+	// Manual zoom takes over - turn off Fit to Window
+	m_bFitToWindow = FALSE;
+
+	// Convert the cursor's screen position to this view's client coordinates
+	CPoint ptClient(pt);
+	ScreenToClient(&ptClient);
+
+	// Figure out which exact IMAGE pixel is currently under the cursor,
+	// independent of zoom level, so we can keep it under the cursor after
+	CPoint scrollPos = GetScrollPosition();
+	double imgX = (scrollPos.x + ptClient.x) / m_zoomFactor;
+	double imgY = (scrollPos.y + ptClient.y) / m_zoomFactor;
+
+	// Adjust the zoom factor - 10% per wheel notch
+	const double zoomStep = 1.1;
+	if (zDelta > 0)
+		m_zoomFactor *= zoomStep;
+	else
+		m_zoomFactor /= zoomStep;
+
+	// Clamp to a sensible range: 10% to 800%
+	if (m_zoomFactor < 0.1) m_zoomFactor = 0.1;
+	if (m_zoomFactor > 8.0) m_zoomFactor = 8.0;
+
+	// Resize the scrollable "virtual canvas" to match the new zoom level
+	int imgWidth = pDoc->m_image.GetWidth();
+	int imgHeight = pDoc->m_image.GetHeight();
+	CSize newDocSize((int)(imgWidth * m_zoomFactor), (int)(imgHeight * m_zoomFactor));
+	SetScrollSizes(MM_TEXT, newDocSize);
+
+	// Recompute where that same image pixel now sits at the new zoom level,
+	// then scroll so it lands back under the cursor
+	CPoint docPtAfter((int)(imgX * m_zoomFactor), (int)(imgY * m_zoomFactor));
+	CPoint newScrollPos(docPtAfter.x - ptClient.x, docPtAfter.y - ptClient.y);
+
+	if (newScrollPos.x < 0) newScrollPos.x = 0;
+	if (newScrollPos.y < 0) newScrollPos.y = 0;
+
+	ScrollToPosition(newScrollPos);
+
+	Invalidate(FALSE);
+	return TRUE;
+}
