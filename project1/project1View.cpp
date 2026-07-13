@@ -316,6 +316,9 @@ void Cproject1View::OnInitialUpdate()
 			double scaleH = (double)targetH / imgH;
 			double scale = min(scaleW, scaleH); // Pick the tightest fit
 
+			// ⭐ UPDATE 1: Store the true scale ratio into your zoom tracking variable!
+			m_zoomFactor = scale;
+
 			int fitImgW = (int)(imgW * scale);
 			int fitImgH = (int)(imgH * scale);
 
@@ -327,7 +330,6 @@ void Cproject1View::OnInitialUpdate()
 			CFrameWnd* pFrame = GetParentFrame();
 			if (pFrame)
 			{
-				// Get MDI client area origin to position correctly
 				CWnd* pMDIClient = pMainFrame ? pMainFrame->GetWindow(GW_CHILD) : nullptr;
 				int originX = 0, originY = 0;
 				if (pMDIClient)
@@ -338,17 +340,14 @@ void Cproject1View::OnInitialUpdate()
 					originY = mdiRect.top;
 				}
 
-				//pFrame->MoveWindow(originX, originY, childW, childH, TRUE);
-				// ✅ Always pin to top-left corner of MDI client area
 				pFrame->SetWindowPos(
-					&CWnd::wndTop,  // Z-order: bring to top
-					0,              // X = 0, left edge of MDI client
-					0,              // Y = 0, TOP edge — no offset!
-					childW,         // correct calculated width
-					childH,         // correct calculated height
+					&CWnd::wndTop,
+					0,
+					0,
+					childW,
+					childH,
 					SWP_SHOWWINDOW
 				);
-
 			}
 
 			// Apply fit-to-window scaling
@@ -6007,7 +6006,6 @@ void Cproject1View::ApplyDuotone(COLORREF shadowColor, COLORREF highlightColor)
 	UpdateWindow();
 }
 
-
 void Cproject1View::OnPointprocessDuotone()
 {
 	Cproject1Doc* pDoc = GetDocument();
@@ -6747,15 +6745,24 @@ BOOL Cproject1View::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
 	if (!pDoc || pDoc->m_image.IsNull())
 		return CScrollView::OnMouseWheel(nFlags, zDelta, pt);
 
-	// Manual zoom takes over - turn off Fit to Window
-	m_bFitToWindow = FALSE;
+	// ⭐ FIX: Handle breaking out of Fit to Window BEFORE doing coordinate math
+	if (m_bFitToWindow)
+	{
+		m_bFitToWindow = FALSE;
+
+		// Reinitialize CScrollView's canvas sizes to match your true fitted zoom factor.
+		// This ensures GetScrollPosition() and internal dimensions report correctly.
+		int imgWidth = pDoc->m_image.GetWidth();
+		int imgHeight = pDoc->m_image.GetHeight();
+		CSize currentFitSize((int)(imgWidth * m_zoomFactor), (int)(imgHeight * m_zoomFactor));
+		SetScrollSizes(MM_TEXT, currentFitSize);
+	}
 
 	// Convert the cursor's screen position to this view's client coordinates
 	CPoint ptClient(pt);
 	ScreenToClient(&ptClient);
 
-	// Figure out which exact IMAGE pixel is currently under the cursor,
-	// independent of zoom level, so we can keep it under the cursor after
+	// Figure out which exact IMAGE pixel is currently under the cursor...
 	CPoint scrollPos = GetScrollPosition();
 	double imgX = (scrollPos.x + ptClient.x) / m_zoomFactor;
 	double imgY = (scrollPos.y + ptClient.y) / m_zoomFactor;
@@ -6774,12 +6781,12 @@ BOOL Cproject1View::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
 	// Resize the scrollable "virtual canvas" to match the new zoom level
 	int imgWidth = pDoc->m_image.GetWidth();
 	int imgHeight = pDoc->m_image.GetHeight();
-	CSize newDocSize((int)(imgWidth * m_zoomFactor), (int)(imgHeight * m_zoomFactor));
+	CSize newDocSize((int)(imgWidth* m_zoomFactor), (int)(imgHeight* m_zoomFactor));
 	SetScrollSizes(MM_TEXT, newDocSize);
 
 	// Recompute where that same image pixel now sits at the new zoom level,
 	// then scroll so it lands back under the cursor
-	CPoint docPtAfter((int)(imgX * m_zoomFactor), (int)(imgY * m_zoomFactor));
+	CPoint docPtAfter((int)(imgX* m_zoomFactor), (int)(imgY* m_zoomFactor));
 	CPoint newScrollPos(docPtAfter.x - ptClient.x, docPtAfter.y - ptClient.y);
 
 	if (newScrollPos.x < 0) newScrollPos.x = 0;

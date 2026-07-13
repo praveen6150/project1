@@ -18,7 +18,9 @@ protected: // create from serialization only
 	double m_previewRotationAngle = 0.0;
 	std::mt19937 m_noiseGenerator;
 	double m_zoomFactor = 1.0;
-	// Attributes
+	bool m_bFitToScreen;
+	float m_fZoomScale;
+
 public:
 	Cproject1Doc* GetDocument() const;
 	BOOL m_bFitToWindow;
