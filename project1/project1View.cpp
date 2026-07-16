@@ -50,6 +50,11 @@
 #include "CCmykDlg.h"
 #include "CQuantumSimDlg.h"
 #include "CQuantumDPPDlg.h"
+#include "CColorizeDlg.h"
+#include "CVibranceDlg.h"
+#include "CWhiteBalanceDlg.h"
+#include "CColorReplaceDlg.h"
+
 
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
 
@@ -129,6 +134,12 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_POINTPROCESS_QUANTUMSIM, &Cproject1View::OnPointprocessQuantumsim)
 	ON_COMMAND(ID_POINTPROCESS_QUANTUMDPP, &Cproject1View::OnPointprocessQuantumdpp)
 	ON_WM_MOUSEWHEEL()
+	ON_WM_LBUTTONDOWN()
+	ON_COMMAND(ID_POINTPROCESS_COLORIZE, &Cproject1View::OnPointprocessColorize)
+	ON_COMMAND(ID_POINTPROCESS_VIBRANCE, &Cproject1View::OnPointprocessVibrance)
+	ON_COMMAND(ID_POINTPROCESS_WHITEBALANCE, &Cproject1View::OnPointprocessWhitebalance)
+	ON_COMMAND(ID_POINTPROCESS_AUTOLEVELS, &Cproject1View::OnPointprocessAutolevels)
+	ON_COMMAND(ID_POINTPROCESS_COLORREPLACE, &Cproject1View::OnPointprocessColorreplace)
 END_MESSAGE_MAP()
 
 template<typename Func>
@@ -1275,9 +1286,6 @@ void Cproject1View::ApplyLiveSolarization(int threshold)
 	Invalidate(FALSE);
 	UpdateWindow();
 }
-
-
-
 
 void Cproject1View::ApplyLivePosterization(int levels)
 {
@@ -6821,3 +6829,586 @@ BOOL Cproject1View::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
 	Invalidate(FALSE);
 	return TRUE;
 }
+
+
+void Cproject1View::RevertToOriginal()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_image.IsNull() || pDoc->m_imageOriginal.IsNull()) return;
+
+	int pitch = pDoc->m_imageOriginal.GetPitch();
+	int height = pDoc->m_imageOriginal.GetHeight();
+	BYTE* pSrcBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
+	BYTE* pDstBits = (BYTE*)pDoc->m_image.GetBits();
+
+	if (pitch < 0) {
+		memcpy(pDstBits + (pitch * (height - 1)), pSrcBits + (pitch * (height - 1)), abs(pitch) * height);
+	}
+	else {
+		memcpy(pDstBits, pSrcBits, pitch * height);
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+
+void Cproject1View::ApplyLiveColorize(int hue, int saturationPercent)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_image.IsNull() || pDoc->m_imageOriginal.IsNull()) return;
+
+	// Restore pristine original first — same discipline as your other live filters
+	pDoc->m_imageOriginal.BitBlt(pDoc->m_image.GetDC(), 0, 0, SRCCOPY);
+	pDoc->m_image.ReleaseDC();
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp < 24) return;
+
+	int bytesPerPixel = bpp / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
+
+	double h = hue / 360.0;              // normalize hue to 0-1
+	double s = saturationPercent / 100.0; // normalize saturation to 0-1
+
+	auto HueToRGB = [](double p, double q, double t) {
+		if (t < 0.0) t += 1.0;
+		if (t > 1.0) t -= 1.0;
+		if (t < 1.0 / 6.0) return p + (q - p) * 6.0 * t;
+		if (t < 1.0 / 2.0) return q;
+		if (t < 2.0 / 3.0) return p + (q - p) * (2.0 / 3.0 - t) * 6.0;
+		return p;
+		};
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = pBits + (y * pitch);
+
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pPixel = pRow + (x * bytesPerPixel);
+
+			double b = pPixel[0] / 255.0;
+			double g = pPixel[1] / 255.0;
+			double r = pPixel[2] / 255.0;
+
+			// --- Compute luminance (perceived brightness) — this becomes our L ---
+			double l = 0.299 * r + 0.587 * g + 0.114 * b;
+
+			// --- Build RGB from fixed Hue/Saturation + this pixel's own Lightness ---
+			double newR, newG, newB;
+
+			if (s == 0.0)
+			{
+				// Zero saturation = pure grayscale, no tint at all
+				newR = newG = newB = l;
+			}
+			else
+			{
+				double q = (l < 0.5) ? (l * (1.0 + s)) : (l + s - l * s);
+				double p = 2.0 * l - q;
+
+				newR = HueToRGB(p, q, h + 1.0 / 3.0);
+				newG = HueToRGB(p, q, h);
+				newB = HueToRGB(p, q, h - 1.0 / 3.0);
+			}
+
+			pPixel[0] = (BYTE)(newB * 255.0 + 0.5);
+			pPixel[1] = (BYTE)(newG * 255.0 + 0.5);
+			pPixel[2] = (BYTE)(newR * 255.0 + 0.5);
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+
+void Cproject1View::OnPointprocessColorize()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_imageOriginal.IsNull() || pDoc->m_image.IsNull()) return;
+
+	CColorizeDlg dlg;
+	dlg.SetTargetView(this);
+
+	if (dlg.DoModal() != IDOK)
+		return; // OnCancel already reverted m_image
+
+	// Commit the effect permanently into m_imageOriginal, same pattern as your CIELab handler
+	pDoc->m_image.BitBlt(pDoc->m_imageOriginal.GetDC(), 0, 0, SRCCOPY);
+	pDoc->m_imageOriginal.ReleaseDC();
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+
+void Cproject1View::ApplyLiveVibrance(int amount)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_image.IsNull() || pDoc->m_imageOriginal.IsNull()) return;
+
+	// Restore pristine original first — same discipline as your other live filters
+	pDoc->m_imageOriginal.BitBlt(pDoc->m_image.GetDC(), 0, 0, SRCCOPY);
+	pDoc->m_image.ReleaseDC();
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp < 24) return;
+
+	int bytesPerPixel = bpp / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
+
+	double vibAmount = amount / 100.0;   // -1.0 to 1.0
+
+	auto HueToRGB = [](double p, double q, double t) {
+		if (t < 0.0) t += 1.0;
+		if (t > 1.0) t -= 1.0;
+		if (t < 1.0 / 6.0) return p + (q - p) * 6.0 * t;
+		if (t < 1.0 / 2.0) return q;
+		if (t < 2.0 / 3.0) return p + (q - p) * (2.0 / 3.0 - t) * 6.0;
+		return p;
+		};
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = pBits + (y * pitch);
+
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pPixel = pRow + (x * bytesPerPixel);
+
+			double b = pPixel[0] / 255.0;
+			double g = pPixel[1] / 255.0;
+			double r = pPixel[2] / 255.0;
+
+			// --- RGB to HSL ---
+			double maxColor = max(r, max(g, b));
+			double minColor = min(r, min(g, b));
+			double delta = maxColor - minColor;
+
+			double h = 0.0, s = 0.0, l = (maxColor + minColor) / 2.0;
+
+			if (delta != 0.0)
+			{
+				s = (l <= 0.5) ? (delta / (maxColor + minColor)) : (delta / (2.0 - maxColor - minColor));
+
+				if (maxColor == r)
+					h = (g - b) / delta + (g < b ? 6.0 : 0.0);
+				else if (maxColor == g)
+					h = (b - r) / delta + 2.0;
+				else
+					h = (r - g) / delta + 4.0;
+
+				h /= 6.0; // normalize to 0-1
+			}
+
+			// --- The key vibrance formula: boost scales DOWN as saturation increases ---
+			double newS = s + (vibAmount * (1.0 - s));
+			newS = max(0.0, min(1.0, newS));
+
+			// --- HSL back to RGB (lightness stays exactly as-is) ---
+			double newR = l, newG = l, newB = l;
+
+			if (newS != 0.0)
+			{
+				double q = (l < 0.5) ? (l * (1.0 + newS)) : (l + newS - l * newS);
+				double p = 2.0 * l - q;
+
+				newR = HueToRGB(p, q, h + 1.0 / 3.0);
+				newG = HueToRGB(p, q, h);
+				newB = HueToRGB(p, q, h - 1.0 / 3.0);
+			}
+
+			pPixel[0] = (BYTE)(newB * 255.0 + 0.5);
+			pPixel[1] = (BYTE)(newG * 255.0 + 0.5);
+			pPixel[2] = (BYTE)(newR * 255.0 + 0.5);
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+
+void Cproject1View::OnPointprocessVibrance()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_imageOriginal.IsNull() || pDoc->m_image.IsNull()) return;
+
+	CVibranceDlg dlg;
+	dlg.SetTargetView(this);
+
+	if (dlg.DoModal() != IDOK)
+		return; // OnCancel already reverted m_image
+
+	pDoc->m_image.BitBlt(pDoc->m_imageOriginal.GetDC(), 0, 0, SRCCOPY);
+	pDoc->m_imageOriginal.ReleaseDC();
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+void Cproject1View::ApplyLiveWhiteBalance(int temperature, int tint)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_image.IsNull() || pDoc->m_imageOriginal.IsNull()) return;
+
+	// Restore pristine original first
+	pDoc->m_imageOriginal.BitBlt(pDoc->m_image.GetDC(), 0, 0, SRCCOPY);
+	pDoc->m_image.ReleaseDC();
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp < 24) return;
+
+	int bytesPerPixel = bpp / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
+
+	// Temperature: scale factor for Red vs Blue (opposite directions)
+	// Positive temperature = warmer (boost R, reduce B); negative = cooler (boost B, reduce R)
+	double tempShift = (temperature / 100.0) * 60.0;   // up to +-60 units on R/B
+
+	// Tint: scale factor for Green vs Red+Blue (opposite directions)
+	// Positive tint = magenta (boost R and B, reduce G); negative = green (boost G, reduce R and B)
+	double tintShift = (tint / 100.0) * 60.0;
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = pBits + (y * pitch);
+
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pPixel = pRow + (x * bytesPerPixel);
+
+			double b = pPixel[0];
+			double g = pPixel[1];
+			double r = pPixel[2];
+
+			// --- Temperature: R up / B down, or vice versa ---
+			r += tempShift;
+			b -= tempShift;
+
+			// --- Tint: G up / R+B down, or vice versa ---
+			g += tintShift;
+			r -= tintShift * 0.5;
+			b -= tintShift * 0.5;
+
+			// --- Clamp to valid byte range ---
+			r = max(0.0, min(255.0, r));
+			g = max(0.0, min(255.0, g));
+			b = max(0.0, min(255.0, b));
+
+			pPixel[0] = (BYTE)(b + 0.5);
+			pPixel[1] = (BYTE)(g + 0.5);
+			pPixel[2] = (BYTE)(r + 0.5);
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+void Cproject1View::OnPointprocessWhitebalance()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_imageOriginal.IsNull() || pDoc->m_image.IsNull()) return;
+
+	CWhiteBalanceDlg dlg;
+	dlg.SetTargetView(this);
+
+	if (dlg.DoModal() != IDOK)
+		return; // OnCancel already reverted m_image
+
+	pDoc->m_image.BitBlt(pDoc->m_imageOriginal.GetDC(), 0, 0, SRCCOPY);
+	pDoc->m_imageOriginal.ReleaseDC();
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+void Cproject1View::OnPointprocessAutolevels()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_imageOriginal.IsNull() || pDoc->m_image.IsNull()) return;
+
+	// Restore pristine original first, then compute + apply the stretch on top of it
+	pDoc->m_imageOriginal.BitBlt(pDoc->m_image.GetDC(), 0, 0, SRCCOPY);
+	pDoc->m_image.ReleaseDC();
+
+	int width = pDoc->m_image.GetWidth();
+	int height = pDoc->m_image.GetHeight();
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp < 24) return;
+
+	int bytesPerPixel = bpp / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
+
+	// --- Pass 1: find min/max for each channel independently ---
+	BYTE minR = 255, maxR = 0;
+	BYTE minG = 255, maxG = 0;
+	BYTE minB = 255, maxB = 0;
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = pBits + (y * pitch);
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pPixel = pRow + (x * bytesPerPixel);
+
+			BYTE b = pPixel[0];
+			BYTE g = pPixel[1];
+			BYTE r = pPixel[2];
+
+			if (b < minB) minB = b;
+			if (b > maxB) maxB = b;
+			if (g < minG) minG = g;
+			if (g > maxG) maxG = g;
+			if (r < minR) minR = r;
+			if (r > maxR) maxR = r;
+		}
+	}
+
+	// --- Guard against flat/degenerate channels (avoid divide-by-zero) ---
+	int rangeR = maxR - minR; if (rangeR == 0) rangeR = 1;
+	int rangeG = maxG - minG; if (rangeG == 0) rangeG = 1;
+	int rangeB = maxB - minB; if (rangeB == 0) rangeB = 1;
+
+	// --- Pass 2: apply the stretch: newValue = (value - min) * 255 / range ---
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = pBits + (y * pitch);
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pPixel = pRow + (x * bytesPerPixel);
+
+			int b = pPixel[0];
+			int g = pPixel[1];
+			int r = pPixel[2];
+
+			int newB = ((b - minB) * 255) / rangeB;
+			int newG = ((g - minG) * 255) / rangeG;
+			int newR = ((r - minR) * 255) / rangeR;
+
+			newB = max(0, min(255, newB));
+			newG = max(0, min(255, newG));
+			newR = max(0, min(255, newR));
+
+			pPixel[0] = (BYTE)newB;
+			pPixel[1] = (BYTE)newG;
+			pPixel[2] = (BYTE)newR;
+		}
+	}
+
+	// Commit permanently into m_imageOriginal, same pattern as your other one-shot filters
+	pDoc->m_image.BitBlt(pDoc->m_imageOriginal.GetDC(), 0, 0, SRCCOPY);
+	pDoc->m_imageOriginal.ReleaseDC();
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+
+void Cproject1View::ApplyLiveColorReplace(COLORREF targetColor, COLORREF replaceColor, int tolerance)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_image.IsNull() || pDoc->m_imageOriginal.IsNull()) return;
+
+	// 1. Restore pristine original first using high-speed block copy
+	int pitch = pDoc->m_imageOriginal.GetPitch();
+	int height = pDoc->m_imageOriginal.GetHeight();
+	BYTE* pSrcBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
+	BYTE* pDstBits = (BYTE*)pDoc->m_image.GetBits();
+
+	if (pitch < 0) {
+		memcpy(pDstBits + (pitch * (height - 1)), pSrcBits + (pitch * (height - 1)), abs(pitch) * height);
+	}
+	else {
+		memcpy(pDstBits, pSrcBits, pitch * height);
+	}
+
+	// 2. Extract targets
+	int targetR = GetRValue(targetColor);
+	int targetG = GetGValue(targetColor);
+	int targetB = GetBValue(targetColor);
+
+	int replaceR = GetRValue(replaceColor);
+	int replaceG = GetGValue(replaceColor);
+	int replaceB = GetBValue(replaceColor);
+
+	// Precalculate squared tolerance to completely remove 'sqrt' from the loop
+	double tol = (double)tolerance;
+	if (tol < 1.0) tol = 1.0;
+	double tolSq = tol * tol;
+
+	// 3. Fire up the high-speed processing template!
+	ProcessPixels([=](BYTE& b, BYTE& g, BYTE& r)
+		{
+			int dr = r - targetR;
+			int dg = g - targetG;
+			int db = b - targetB;
+
+			// Squared Euclidean distance calculation
+			double distSq = (double)(dr * dr + dg * dg + db * db);
+
+			if (distSq <= tolSq)
+			{
+				// Soft blend calculation using fast square roots only when a pixel qualifies
+				double dist = sqrt(distSq);
+				double blendFactor = 1.0 - (dist / tol);
+
+				r = (BYTE)max(0, min(255, (int)(r + (replaceR - r) * blendFactor)));
+				g = (BYTE)max(0, min(255, (int)(g + (replaceG - g) * blendFactor)));
+				b = (BYTE)max(0, min(255, (int)(b + (replaceB - b) * blendFactor)));
+			}
+		});
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+
+void Cproject1View::OnPointprocessColorreplace()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_imageOriginal.IsNull() || pDoc->m_image.IsNull()) return;
+
+	CColorReplaceDlg dlg;
+	dlg.SetTargetView(this);
+
+	if (dlg.DoModal() != IDOK)
+		return; // OnCancel already cleanly reverted m_image via block copy
+
+	// OK Clicked: Synchronize the pristine original backup with our final image state safely
+	int pitch = pDoc->m_image.GetPitch();
+	int height = pDoc->m_image.GetHeight();
+	BYTE* pSrcBits = (BYTE*)pDoc->m_image.GetBits();
+	BYTE* pDstBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
+
+	if (pitch < 0) {
+		memcpy(pDstBits + (pitch * (height - 1)), pSrcBits + (pitch * (height - 1)), abs(pitch) * height);
+	}
+	else {
+		memcpy(pDstBits, pSrcBits, pitch * height);
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+
+void Cproject1View::StartEyedropperMode(CColorReplaceDlg* pCallerDlg)
+{
+	m_bEyedropperActive = TRUE;
+	m_pEyedropperCallback = pCallerDlg;
+
+	// Crosshair cursor gives clear visual feedback that we're in "pick a pixel" mode
+	SetCursor(AfxGetApp()->LoadStandardCursor(IDC_CROSS));
+}
+
+void Cproject1View::OnLButtonDown(UINT nFlags, CPoint point)
+{
+	if (m_bEyedropperActive)
+	{
+		Cproject1Doc* pDoc = GetDocument();
+		if (pDoc && !pDoc->m_image.IsNull())
+		{
+			// Convert the click point (client coords) into logical/scroll coords
+			CPoint logicalPoint = point;
+			OnPrepareDC(nullptr); // no-op safeguard if not a CScrollView; harmless either way
+
+			// Since your OnDraw() may draw fit-to-window (scaled) or 1:1,
+			// we need to map the click back to actual image pixel coordinates.
+			CRect rectClient;
+			GetClientRect(&rectClient);
+
+			int imgWidth = pDoc->m_image.GetWidth();
+			int imgHeight = pDoc->m_image.GetHeight();
+
+			int pixelX, pixelY;
+
+			if (m_bFitToWindow)
+			{
+				double destAspect = (double)rectClient.Width() / rectClient.Height();
+				double srcAspect = (double)imgWidth / imgHeight;
+				int drawWidth = rectClient.Width();
+				int drawHeight = rectClient.Height();
+				int startX = 0, startY = 0;
+
+				if (destAspect > srcAspect)
+				{
+					drawWidth = (int)(rectClient.Height() * srcAspect);
+					startX = (rectClient.Width() - drawWidth) / 2;
+				}
+				else
+				{
+					drawHeight = (int)(rectClient.Width() / srcAspect);
+					startY = (rectClient.Height() - drawHeight) / 2;
+				}
+
+				pixelX = (int)((logicalPoint.x - startX) * ((double)imgWidth / drawWidth));
+				pixelY = (int)((logicalPoint.y - startY) * ((double)imgHeight / drawHeight));
+			}
+			else
+			{
+				// 1:1 scroll mode — client coords map directly to image pixels
+				pixelX = logicalPoint.x;
+				pixelY = logicalPoint.y;
+			}
+
+			// Bounds check
+			if (pixelX >= 0 && pixelX < imgWidth && pixelY >= 0 && pixelY < imgHeight)
+			{
+				int bpp = pDoc->m_image.GetBPP() / 8;
+				int pitch = pDoc->m_image.GetPitch();
+				BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
+
+				BYTE* pPixel = pBits + (pixelY * pitch) + (pixelX * bpp);
+				BYTE b = pPixel[0];
+				BYTE g = pPixel[1];
+				BYTE r = pPixel[2];
+
+				COLORREF sampledColor = RGB(r, g, b);
+
+				if (m_pEyedropperCallback)
+					m_pEyedropperCallback->OnEyedropperColorPicked(sampledColor);
+			}
+		}
+
+		m_bEyedropperActive = FALSE;
+		m_pEyedropperCallback = nullptr;
+		SetCursor(AfxGetApp()->LoadStandardCursor(IDC_ARROW)); // restore normal cursor
+	}
+
+	CView::OnLButtonDown(nFlags, point);
+}
+
+//void Cproject1View::RevertToOriginal()
+//{
+//	Cproject1Doc* pDoc = GetDocument();
+//	if (!pDoc || pDoc->m_image.IsNull() || pDoc->m_imageOriginal.IsNull()) return;
+//
+//	int pitch = pDoc->m_imageOriginal.GetPitch();
+//	int height = pDoc->m_imageOriginal.GetHeight();
+//	BYTE* pSrcBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
+//	BYTE* pDstBits = (BYTE*)pDoc->m_image.GetBits();
+//
+//	if (pitch < 0) {
+//		memcpy(pDstBits + (pitch * (height - 1)), pSrcBits + (pitch * (height - 1)), abs(pitch) * height);
+//	}
+//	else {
+//		memcpy(pDstBits, pSrcBits, pitch * height);
+//	}
+//
+//	Invalidate(FALSE);
+//	UpdateWindow();
+//}

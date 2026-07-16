@@ -6,8 +6,11 @@
 #include "project1Doc.h"
 #include <vector>
 #include <random>
+//#include "CColorReplaceDlg.h"
 
-class CHistogramDlg; // <-- 1. ADD THIS LINE SO THE VIEW KNOWS THE DIALOG EXISTS
+class CHistogramDlg;
+class CColorReplaceDlg;
+
 
 class Cproject1View : public CScrollView
 {
@@ -20,6 +23,8 @@ protected: // create from serialization only
 	double m_zoomFactor = 1.0;
 	bool m_bFitToScreen;
 	float m_fZoomScale;
+	BOOL m_bEyedropperActive = FALSE;
+	CColorReplaceDlg* m_pEyedropperCallback = nullptr;
 
 public:
 	Cproject1Doc* GetDocument() const;
@@ -38,6 +43,7 @@ public:
 	virtual void OnDraw(CDC* pDC);  // overridden to draw this view
 	void OnInitialUpdate();
 	virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
+	void StartEyedropperMode(CColorReplaceDlg* pCallerDlg);
 protected:
 	virtual BOOL OnPreparePrinting(CPrintInfo* pInfo);
 	virtual void OnBeginPrinting(CDC* pDC, CPrintInfo* pInfo);
@@ -66,6 +72,7 @@ protected:
 protected:
 	//afx_msg void OnColorsHsvadjustment();
 	DECLARE_MESSAGE_MAP()
+	
 public:
 	afx_msg void ApplyCurvesLUT(const BYTE lut[256]);
 	afx_msg void OnViewFittowindow();
@@ -176,6 +183,19 @@ public:
 	afx_msg void ApplyQuantumSim(int levels, double uncertainty);
 	afx_msg void OnPointprocessQuantumdpp();
 	afx_msg void ApplyQuantumDPP(int gridSpacing, int repulsionRadius, double entanglementStrength, int dotSize);
+	afx_msg void RevertToOriginal();
+	afx_msg void ApplyLiveColorize(int hue, int saturationPercent);
+	afx_msg void OnPointprocessColorize();
+	afx_msg void ApplyLiveVibrance(int amount);
+	afx_msg void OnPointprocessVibrance();
+	afx_msg void ApplyLiveWhiteBalance(int temperature, int tint);
+	afx_msg void OnPointprocessWhitebalance();
+	afx_msg void OnPointprocessAutolevels();
+	afx_msg void ApplyLiveColorReplace(COLORREF targetColor, COLORREF replaceColor, int tolerance);
+	afx_msg void OnPointprocessColorreplace();
+	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
+
+
 };
 
 #ifndef _DEBUG  // debug version in project1View.cpp

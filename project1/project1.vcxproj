@@ -205,6 +205,8 @@
     <ClInclude Include="CChannelIsolationDlg.h" />
     <ClInclude Include="CCmykDlg.h" />
     <ClInclude Include="CColorBalanceDlg.h" />
+    <ClInclude Include="CColorizeDlg.h" />
+    <ClInclude Include="CColorReplaceDlg.h" />
     <ClInclude Include="CContrastStretchDlg.h" />
     <ClInclude Include="CCurveControl.h" />
     <ClInclude Include="CCurvesAdjustmentDlg.h" />
@@ -230,7 +232,9 @@
     <ClInclude Include="CSepiaToneDlg.h" />
     <ClInclude Include="CSigmoidContrastDlg.h" />
     <ClInclude Include="CSolarizationDlg.h" />
+    <ClInclude Include="CVibranceDlg.h" />
     <ClInclude Include="CVignetteDlg.h" />
+    <ClInclude Include="CWhiteBalanceDlg.h" />
     <ClInclude Include="CYcbCrDlg.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="MainFrm.h" />
@@ -248,6 +252,8 @@
     <ClCompile Include="CChannelIsolationDlg.cpp" />
     <ClCompile Include="CCmykDlg.cpp" />
     <ClCompile Include="CColorBalanceDlg.cpp" />
+    <ClCompile Include="CColorizeDlg.cpp" />
+    <ClCompile Include="CColorReplaceDlg.cpp" />
     <ClCompile Include="CContrastStretchDlg.cpp" />
     <ClCompile Include="CCurveControl.cpp" />
     <ClCompile Include="CCurvesAdjustmentDlg.cpp" />
@@ -273,7 +279,9 @@
     <ClCompile Include="CSepiaToneDlg.cpp" />
     <ClCompile Include="CSigmoidContrastDlg.cpp" />
     <ClCompile Include="CSolarizationDlg.cpp" />
+    <ClCompile Include="CVibranceDlg.cpp" />
     <ClCompile Include="CVignetteDlg.cpp" />
+    <ClCompile Include="CWhiteBalanceDlg.cpp" />
     <ClCompile Include="CYcbCrDlg.cpp" />
     <ClCompile Include="MainFrm.cpp" />
     <ClCompile Include="pch.cpp">

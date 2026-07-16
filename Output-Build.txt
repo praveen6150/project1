@@ -1,0 +1,4 @@
+﻿Clean started at 11:57 PM...
+1>------ Clean started: Project: project1, Configuration: Release x64 ------
+========== Clean: 1 succeeded, 0 failed, 0 skipped ==========
+========== Clean completed at 11:57 PM and took 00.554 seconds ==========
