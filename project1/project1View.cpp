@@ -1,5 +1,4 @@
 // project1View.cpp : implementation of the Cproject1View class
-//
 
 #include "pch.h"
 #include "framework.h"
@@ -161,7 +160,6 @@ void Cproject1View::ProcessPixels(Func pfnPixelOp)
 	pDoc->UpdateAllViews(NULL);
 }
 
-
 Cproject1View::Cproject1View() noexcept
 	: m_noiseGenerator((unsigned int)std::chrono::steady_clock::now().time_since_epoch().count())
 {
@@ -278,7 +276,6 @@ void Cproject1View::OnDraw(CDC* pDC)
 			);
 		}
 	}
-
 
 	// 4. Single hardware copy to physical display instantly (Zero Flicker)
 	pDC->BitBlt(0, 0, rectClient.Width(), rectClient.Height(), &memDC, 0, 0, SRCCOPY);
@@ -622,7 +619,6 @@ void Cproject1View::ApplyLiveBrightnessContrast(int bPos, int cPos)
 			}
 		}
 	}
-
 	// Update canvas layout view
 	Invalidate(FALSE);
 	UpdateWindow();
@@ -854,7 +850,6 @@ void Cproject1View::ApplyLiveYCbCr(int yOffset, int cbOffset, int crOffset)
 			// Alpha channel (pPixel[3]) is safely untouched for 32-bit images
 		}
 	}
-
 	// 4. Force window to cleanly repaint the workspace matrix
 	Invalidate(FALSE);
 	UpdateWindow();
