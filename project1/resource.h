@@ -2,6 +2,11 @@
 // Microsoft Visual C++ generated include file.
 // Used by project1.rc
 //
+
+#ifndef WS_EX_COMPOSITED
+#define WS_EX_COMPOSITED 0x02000000L
+#endif
+
 #define IDD_ABOUTBOX                    100
 #define IDP_OLE_INIT_FAILED             101
 #define IDR_MAINFRAME                   128
