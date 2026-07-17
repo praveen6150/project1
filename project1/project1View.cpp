@@ -54,7 +54,7 @@
 #include "CVibranceDlg.h"
 #include "CWhiteBalanceDlg.h"
 #include "CColorReplaceDlg.h"
-
+#include "CExposureDlg.h"
 
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
 
@@ -141,6 +141,8 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_POINTPROCESS_WHITEBALANCE, &Cproject1View::OnPointprocessWhitebalance)
 	ON_COMMAND(ID_POINTPROCESS_AUTOLEVELS, &Cproject1View::OnPointprocessAutolevels)
 	ON_COMMAND(ID_POINTPROCESS_COLORREPLACE, &Cproject1View::OnPointprocessColorreplace)
+	ON_COMMAND(ID_POINTPROCESS_EXPOSURE, &Cproject1View::OnPointprocessExposure)
+	ON_COMMAND(ID_POINTPROCESS_AUTOWHITEBALANCE, &Cproject1View::OnPointprocessAutowhitebalance)
 END_MESSAGE_MAP()
 
 
@@ -7458,5 +7460,182 @@ void Cproject1View::OnLButtonDown(UINT nFlags, CPoint point)
 	CView::OnLButtonDown(nFlags, point);
 }
 
+void Cproject1View::ApplyLiveExposure(int exposureStops100)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_image.IsNull() || pDoc->m_imageOriginal.IsNull()) return;
+
+	// Restore pristine original first — same discipline as your other live filters
+	int pitch = pDoc->m_imageOriginal.GetPitch();
+	int height = pDoc->m_imageOriginal.GetHeight();
+	BYTE* pSrcBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
+	BYTE* pDstBits = (BYTE*)pDoc->m_image.GetBits();
+
+	if (pitch < 0) {
+		memcpy(pDstBits + (pitch * (height - 1)), pSrcBits + (pitch * (height - 1)), abs(pitch) * height);
+	}
+	else {
+		memcpy(pDstBits, pSrcBits, pitch * height);
+	}
+
+	int width = pDoc->m_image.GetWidth();
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp < 24) return;
+
+	int bytesPerPixel = bpp / 8;
+	int dstPitch = pDoc->m_image.GetPitch();
+	BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
+
+	// Convert stops (as an integer *100) into the actual multiplier: 2^stops
+	double stops = exposureStops100 / 100.0;
+	double multiplier = pow(2.0, stops);
+
+	// Precompute a 256-entry lookup table — same optimization idea as your LAB LUT
+	BYTE lut[256];
+	for (int i = 0; i < 256; i++)
+	{
+		double v = i * multiplier;
+		v = max(0.0, min(255.0, v));
+		lut[i] = (BYTE)(v + 0.5);
+	}
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = pBits + (y * dstPitch);
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pPixel = pRow + (x * bytesPerPixel);
+			pPixel[0] = lut[pPixel[0]];   // B
+			pPixel[1] = lut[pPixel[1]];   // G
+			pPixel[2] = lut[pPixel[2]];   // R
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
 
 
+
+
+void Cproject1View::OnPointprocessExposure()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_imageOriginal.IsNull() || pDoc->m_image.IsNull()) return;
+
+	CExposureDlg dlg;
+	dlg.SetTargetView(this);
+
+	if (dlg.DoModal() != IDOK)
+		return; // OnCancel already reverted m_image
+
+	int pitch = pDoc->m_image.GetPitch();
+	int height = pDoc->m_image.GetHeight();
+	BYTE* pSrcBits = (BYTE*)pDoc->m_image.GetBits();
+	BYTE* pDstBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
+
+	if (pitch < 0) {
+		memcpy(pDstBits + (pitch * (height - 1)), pSrcBits + (pitch * (height - 1)), abs(pitch) * height);
+	}
+	else {
+		memcpy(pDstBits, pSrcBits, pitch * height);
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+void Cproject1View::OnPointprocessAutowhitebalance()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_imageOriginal.IsNull() || pDoc->m_image.IsNull()) return;
+
+	// Restore pristine original first, then compute + apply the correction on top of it
+	int pitch = pDoc->m_imageOriginal.GetPitch();
+	int height = pDoc->m_imageOriginal.GetHeight();
+	BYTE* pSrcBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
+	BYTE* pDstBits = (BYTE*)pDoc->m_image.GetBits();
+
+	if (pitch < 0) {
+		memcpy(pDstBits + (pitch * (height - 1)), pSrcBits + (pitch * (height - 1)), abs(pitch) * height);
+	}
+	else {
+		memcpy(pDstBits, pSrcBits, pitch * height);
+	}
+
+	int width = pDoc->m_image.GetWidth();
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp < 24) return;
+
+	int bytesPerPixel = bpp / 8;
+	int dstPitch = pDoc->m_image.GetPitch();
+	BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
+
+	// --- Pass 1: compute average R, G, B across the whole image ---
+	double sumR = 0.0, sumG = 0.0, sumB = 0.0;
+	long long pixelCount = (long long)width * height;
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = pBits + (y * dstPitch);
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pPixel = pRow + (x * bytesPerPixel);
+			sumB += pPixel[0];
+			sumG += pPixel[1];
+			sumR += pPixel[2];
+		}
+	}
+
+	double avgR = sumR / pixelCount;
+	double avgG = sumG / pixelCount;
+	double avgB = sumB / pixelCount;
+
+	// Guard against a fully black image (avoid divide-by-zero)
+	if (avgR < 1.0) avgR = 1.0;
+	if (avgG < 1.0) avgG = 1.0;
+	if (avgB < 1.0) avgB = 1.0;
+
+	// --- The Gray World correction: target = overall average brightness ---
+	double avgGray = (avgR + avgG + avgB) / 3.0;
+
+	double scaleR = avgGray / avgR;
+	double scaleG = avgGray / avgG;
+	double scaleB = avgGray / avgB;
+
+	// --- Pass 2: apply per-channel scale via lookup tables (fast, same idea as your Exposure LUT) ---
+	BYTE lutR[256], lutG[256], lutB[256];
+	for (int i = 0; i < 256; i++)
+	{
+		lutR[i] = (BYTE)max(0.0, min(255.0, i * scaleR + 0.5));
+		lutG[i] = (BYTE)max(0.0, min(255.0, i * scaleG + 0.5));
+		lutB[i] = (BYTE)max(0.0, min(255.0, i * scaleB + 0.5));
+	}
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = pBits + (y * dstPitch);
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pPixel = pRow + (x * bytesPerPixel);
+			pPixel[0] = lutB[pPixel[0]];
+			pPixel[1] = lutG[pPixel[1]];
+			pPixel[2] = lutR[pPixel[2]];
+		}
+	}
+
+	// Commit permanently into m_imageOriginal, same pattern as your other one-shot filters
+	int commitPitch = pDoc->m_image.GetPitch();
+	BYTE* pCommitSrc = (BYTE*)pDoc->m_image.GetBits();
+	BYTE* pCommitDst = (BYTE*)pDoc->m_imageOriginal.GetBits();
+
+	if (commitPitch < 0) {
+		memcpy(pCommitDst + (commitPitch * (height - 1)), pCommitSrc + (commitPitch * (height - 1)), abs(commitPitch) * height);
+	}
+	else {
+		memcpy(pCommitDst, pCommitSrc, commitPitch * height);
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}

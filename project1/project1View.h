@@ -206,7 +206,9 @@ public:
 	afx_msg void ApplyLiveColorReplace(COLORREF targetColor, COLORREF replaceColor, int tolerance);
 	afx_msg void OnPointprocessColorreplace();
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
-
+	afx_msg void ApplyLiveExposure(int exposureStops100);
+	afx_msg void OnPointprocessExposure();
+	afx_msg void OnPointprocessAutowhitebalance();
 };
 
 #ifndef _DEBUG  // debug version in project1View.cpp
