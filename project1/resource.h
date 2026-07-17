@@ -2,11 +2,6 @@
 // Microsoft Visual C++ generated include file.
 // Used by project1.rc
 //
-
-#ifndef WS_EX_COMPOSITED
-#define WS_EX_COMPOSITED 0x02000000L
-#endif
-
 #define IDD_ABOUTBOX                    100
 #define IDP_OLE_INIT_FAILED             101
 #define IDR_MAINFRAME                   128
@@ -152,7 +147,7 @@
 #define IDC_SLIDER_COLORIZE_SAT         1088
 #define IDC_SLIDER_TINT                 1088
 #define IDC_SLIDER_USTAR                1088
-#define IDC_SLIDER_LEVELS_GAMMA         1089
+#define IDC_SLIDER_LEVELS_GAMMA         1289
 #define IDC_SLIDER_BLACK                1089
 #define IDC_SLIDER_QDPP_ENTANGLE        1089
 #define IDC_SLIDER_VSTAR                1089
@@ -195,6 +190,9 @@
 #define IDC_STATIC_TARGET_COLOR         1126
 #define IDC_STATIC_HOVER_COLOR          1127
 #define IDC_STATIC_EXPOSURE_TEXT        1128
+#define IDC_STATIC_L_VAL                1129
+#define IDC_STATIC_U_VAL                1130
+#define IDC_STATIC_V_VAL                1131
 #define ID_VIEW_FITTOWINDOW             32771
 #define ID_POINT_INVERTCOLORS           32773
 #define ID_Menu                         32778
@@ -322,7 +320,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        381
 #define _APS_NEXT_COMMAND_VALUE         32902
-#define _APS_NEXT_CONTROL_VALUE         1129
+#define _APS_NEXT_CONTROL_VALUE         1132
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

@@ -77,6 +77,8 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	// Don't show it yet — only show when an operation starts
 	m_wndProgress.ShowWindow(SW_HIDE);
 
+	SetWindowText(_T("Digital Image Processing - Version 1.0.0"));
+
 	return 0;
 }
 
@@ -86,6 +88,7 @@ BOOL CMainFrame::PreCreateWindow(CREATESTRUCT& cs)
 		return FALSE;
 	// TODO: Modify the Window class or styles here by modifying
 	//  the CREATESTRUCT cs
+	cs.style &= ~FWS_ADDTOTITLE; // Remove the default "Untitled - " prefix
 
 	return TRUE;
 }

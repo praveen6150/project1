@@ -22,6 +22,11 @@ void CLuvDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_SLIDER_LSTAR_LUV, m_sliderL);
 	DDX_Control(pDX, IDC_SLIDER_USTAR, m_sliderU);
 	DDX_Control(pDX, IDC_SLIDER_VSTAR, m_sliderV);
+
+	DDX_Control(pDX, IDC_STATIC_L_VAL, m_lblL);
+	DDX_Control(pDX, IDC_STATIC_U_VAL, m_lblU);
+	DDX_Control(pDX, IDC_STATIC_V_VAL, m_lblV);
+
 }
 
 BEGIN_MESSAGE_MAP(CLuvDlg, CDialogEx)
@@ -49,17 +54,35 @@ BOOL CLuvDlg::OnInitDialog()
 	m_sliderV.SetPos(0);
 	m_sliderV.SetTicFreq(50);
 
+	m_lblL.SetWindowTextW(_T("0"));
+	m_lblU.SetWindowTextW(_T("0"));
+	m_lblV.SetWindowTextW(_T("0"));
+
 	return TRUE;
 }
 
 void CLuvDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 {
+	CString strVal;
+
 	if (pScrollBar == (CScrollBar*)&m_sliderL)
+	{
 		m_deltaL = m_sliderL.GetPos();
+		strVal.Format(_T("%d"), m_deltaL);
+		m_lblL.SetWindowTextW(strVal);
+	}
 	else if (pScrollBar == (CScrollBar*)&m_sliderU)
+	{
 		m_deltaU = m_sliderU.GetPos();
+		strVal.Format(_T("%d"), m_deltaU);
+		m_lblU.SetWindowTextW(strVal);
+	}
 	else if (pScrollBar == (CScrollBar*)&m_sliderV)
+	{
 		m_deltaV = m_sliderV.GetPos();
+		strVal.Format(_T("%d"), m_deltaV);
+		m_lblV.SetWindowTextW(strVal);
+	}
 
 	if (m_pTargetView)
 		m_pTargetView->ApplyLiveLuv(m_deltaL, m_deltaU, m_deltaV);

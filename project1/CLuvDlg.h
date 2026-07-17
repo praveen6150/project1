@@ -33,6 +33,10 @@ protected:
 	CSliderCtrl m_sliderU;
 	CSliderCtrl m_sliderV;
 
+	CStatic     m_lblL;
+	CStatic     m_lblU;
+	CStatic     m_lblV;
+
 	Cproject1View* m_pTargetView = nullptr;
 
 	DECLARE_MESSAGE_MAP()
