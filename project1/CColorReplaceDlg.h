@@ -1,7 +1,7 @@
 #pragma once
 
 #include "afxdialogex.h"
-#include <afxcmn.h> // Guaranteed compilation of CSliderCtrl
+#include <afxcmn.h> 
 
 class Cproject1View; // Clean forward declaration
 
