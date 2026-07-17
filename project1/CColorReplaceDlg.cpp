@@ -3,22 +3,19 @@
 #include "CColorReplaceDlg.h"
 #include "project1View.h"
 #include "afxdialogex.h"
-#include "afxcolorbutton.h"
 
 IMPLEMENT_DYNAMIC(CColorReplaceDlg, CDialogEx)
 
 CColorReplaceDlg::CColorReplaceDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_COLORREPLACE, pParent)
-	, m_targetColor(RGB(255, 0, 0))     // default target: red
-	, m_replaceColor(RGB(0, 0, 255))    // default replace: blue
+	, m_targetColor(RGB(255, 0, 0))
+	, m_replaceColor(RGB(0, 0, 255))
 	, m_tolerance(40)
-	, m_pTargetView(nullptr)            // FIXED: Initialize the view pointer safely to null
-{
-}
+	, m_pTargetView(nullptr)
+{}
 
 CColorReplaceDlg::~CColorReplaceDlg()
-{
-}
+{}
 
 void CColorReplaceDlg::DoDataExchange(CDataExchange* pDX)
 {
@@ -28,10 +25,8 @@ void CColorReplaceDlg::DoDataExchange(CDataExchange* pDX)
 
 BEGIN_MESSAGE_MAP(CColorReplaceDlg, CDialogEx)
 	ON_WM_HSCROLL()
-	ON_BN_CLICKED(IDC_BUTTON_TARGET_COLOR, &CColorReplaceDlg::OnBnClickedButtonTargetColor)
 	ON_BN_CLICKED(IDC_BUTTON_REPLACE_COLOR, &CColorReplaceDlg::OnBnClickedButtonReplaceColor)
-	ON_BN_CLICKED(IDC_BUTTON_EYEDROPPER_TARGET, &CColorReplaceDlg::OnBnClickedButtonEyedropperTarget)
-END_MESSAGE_MAP() // FIXED: Placed cleanly on its own macro line
+END_MESSAGE_MAP()
 
 void CColorReplaceDlg::SetTargetView(Cproject1View* pView)
 {
@@ -50,30 +45,29 @@ BOOL CColorReplaceDlg::OnInitDialog()
 	text.Format(_T("Tolerance: %d"), m_tolerance);
 	SetDlgItemText(IDC_STATIC_TOLERANCE_TEXT, text);
 
-	UpdateButtonColors();
+	SetDlgItemText(IDC_STATIC_HOVER_COLOR, _T("Hover: -"));
+	UpdateTargetLabel();
+	UpdateReplaceLabel();
+
+	// Start live hover/click tracking on the canvas for the entire life of this dialog
+	if (m_pTargetView)
+		m_pTargetView->StartColorPickerTracking(this);
 
 	return TRUE;
 }
 
-void CColorReplaceDlg::UpdateButtonColors()
+void CColorReplaceDlg::UpdateTargetLabel()
 {
-	CString targetText, replaceText;
-	targetText.Format(_T("Target: R%d G%d B%d"), GetRValue(m_targetColor), GetGValue(m_targetColor), GetBValue(m_targetColor));
-	replaceText.Format(_T("Replace: R%d G%d B%d"), GetRValue(m_replaceColor), GetGValue(m_replaceColor), GetBValue(m_replaceColor));
-
-	SetDlgItemText(IDC_BUTTON_TARGET_COLOR, targetText);
-	SetDlgItemText(IDC_BUTTON_REPLACE_COLOR, replaceText);
+	CString text;
+	text.Format(_T("Target: R%d G%d B%d"), GetRValue(m_targetColor), GetGValue(m_targetColor), GetBValue(m_targetColor));
+	SetDlgItemText(IDC_STATIC_TARGET_COLOR, text);
 }
 
-void CColorReplaceDlg::OnBnClickedButtonTargetColor()
+void CColorReplaceDlg::UpdateReplaceLabel()
 {
-	CColorDialog dlg(m_targetColor, CC_FULLOPEN, this);
-	if (dlg.DoModal() == IDOK)
-	{
-		m_targetColor = dlg.GetColor();
-		UpdateButtonColors();
-		UpdateLive();
-	}
+	CString text;
+	text.Format(_T("Replace: R%d G%d B%d"), GetRValue(m_replaceColor), GetGValue(m_replaceColor), GetBValue(m_replaceColor));
+	SetDlgItemText(IDC_BUTTON_REPLACE_COLOR, text);
 }
 
 void CColorReplaceDlg::OnBnClickedButtonReplaceColor()
@@ -82,7 +76,7 @@ void CColorReplaceDlg::OnBnClickedButtonReplaceColor()
 	if (dlg.DoModal() == IDOK)
 	{
 		m_replaceColor = dlg.GetColor();
-		UpdateButtonColors();
+		UpdateReplaceLabel();
 		UpdateLive();
 	}
 }
@@ -99,14 +93,27 @@ void CColorReplaceDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar
 
 		UpdateLive();
 	}
-
 	CDialogEx::OnHScroll(nSBCode, nPos, pScrollBar);
 }
 
 void CColorReplaceDlg::UpdateLive()
 {
-	if (m_pTargetView != nullptr)
+	if (m_pTargetView)
 		m_pTargetView->ApplyLiveColorReplace(m_targetColor, m_replaceColor, m_tolerance);
+}
+
+void CColorReplaceDlg::OnHoverColorUpdate(COLORREF color)
+{
+	CString text;
+	text.Format(_T("Hover: R%d G%d B%d"), GetRValue(color), GetGValue(color), GetBValue(color));
+	SetDlgItemText(IDC_STATIC_HOVER_COLOR, text);
+}
+
+void CColorReplaceDlg::OnEyedropperColorPicked(COLORREF color)
+{
+	m_targetColor = color;
+	UpdateTargetLabel();
+	UpdateLive();
 }
 
 void CColorReplaceDlg::OnOK()
@@ -116,48 +123,16 @@ void CColorReplaceDlg::OnOK()
 
 void CColorReplaceDlg::OnCancel()
 {
-	if (m_pTargetView != nullptr)
+	if (m_pTargetView)
 		m_pTargetView->RevertToOriginal();
 
 	CDialogEx::OnCancel();
 }
 
-void CColorReplaceDlg::OnBnClickedButtonEyedropperTarget()
-{
-	if (m_pTargetView != nullptr)
-	{
-		ShowWindow(SW_HIDE);
-
-		CWnd* pMainWnd = AfxGetMainWnd();
-		if (pMainWnd)
-		{
-			pMainWnd->SetForegroundWindow();
-			pMainWnd->BringWindowToTop();
-		}
-
-		CFrameWnd* pParentFrame = m_pTargetView->GetParentFrame();
-		if (pParentFrame)
-			pParentFrame->ActivateFrame();
-
-		m_pTargetView->StartEyedropperMode(this);
-	}
-}
-
-void CColorReplaceDlg::OnEyedropperColorPicked(COLORREF pickedColor)
-{
-	m_targetColor = pickedColor;
-
-	ShowWindow(SW_SHOW);
-	SetForegroundWindow();
-
-	UpdateButtonColors();
-	UpdateLive();
-}
-
 void CColorReplaceDlg::PostNcDestroy()
 {
 	if (m_pTargetView)
-		m_pTargetView->CancelEyedropperMode();
+		m_pTargetView->StopColorPickerTracking();
 
 	CDialogEx::PostNcDestroy();
 }

@@ -23,8 +23,6 @@ protected: // create from serialization only
 	double m_zoomFactor = 1.0;
 	bool m_bFitToScreen;
 	float m_fZoomScale;
-	BOOL m_bEyedropperActive = FALSE;
-	CColorReplaceDlg* m_pEyedropperCallback = nullptr;
 
 public:
 	Cproject1Doc* GetDocument() const;
@@ -43,7 +41,9 @@ public:
 	virtual void OnDraw(CDC* pDC);  // overridden to draw this view
 	void OnInitialUpdate();
 	virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
-	void StartEyedropperMode(CColorReplaceDlg* pCallerDlg);
+	void StartColorPickerTracking(CColorReplaceDlg* pDlg);
+	void StopColorPickerTracking();
+
 protected:
 	virtual BOOL OnPreparePrinting(CPrintInfo* pInfo);
 	virtual void OnBeginPrinting(CDC* pDC, CPrintInfo* pInfo);
@@ -53,6 +53,17 @@ protected:
 	// Implementation
 	template<typename Func>
 	void ProcessPixels(Func pfnPixelOp);
+
+	static HHOOK s_hColorPickerHook;
+	static Cproject1View* s_pActiveColorPickerView;
+	static LRESULT CALLBACK ColorPickerHookProc(int nCode, WPARAM wParam, LPARAM lParam);
+
+	CColorReplaceDlg* m_pColorPickerDlg = nullptr;
+
+	void HandleColorPickerHover(CPoint screenPt);
+	BOOL HandleColorPickerClick(CPoint screenPt);
+	BOOL GetPixelColorAtScreenPoint(CPoint screenPt, COLORREF& outColor);
+	BOOL IsScreenPointOverDialog(CPoint screenPt);
 
 public:
 	virtual ~Cproject1View();
@@ -69,12 +80,6 @@ protected:
 	void RotateImageArbitrary(CImage& img, double angleDegrees);
 	int ComputeOtsuThreshold(const std::vector<int>& histogram, int totalPixels);
 	afx_msg BOOL OnMouseWheel(UINT nFlags, short zDelta, CPoint pt);
-	afx_msg BOOL OnSetCursor(CWnd* pWnd, UINT nHitTest, UINT message);
-
-	static HHOOK s_hMouseHook;
-	static Cproject1View* s_pActiveEyedropperView;
-	static LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, LPARAM lParam);
-	void HandleEyedropperClick(CPoint screenPt);
 
 protected:
 	//afx_msg void OnColorsHsvadjustment();
@@ -201,7 +206,6 @@ public:
 	afx_msg void ApplyLiveColorReplace(COLORREF targetColor, COLORREF replaceColor, int tolerance);
 	afx_msg void OnPointprocessColorreplace();
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
-	void CancelEyedropperMode();
 
 };
 

@@ -144,11 +144,8 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 END_MESSAGE_MAP()
 
 
-HHOOK Cproject1View::s_hMouseHook = NULL;
-Cproject1View* Cproject1View::s_pActiveEyedropperView = nullptr;
-
-
-
+HHOOK Cproject1View::s_hColorPickerHook = NULL;
+Cproject1View* Cproject1View::s_pActiveColorPickerView = nullptr;
 
 
 template<typename Func>
@@ -7314,16 +7311,146 @@ void Cproject1View::OnPointprocessColorreplace()
 	UpdateWindow();
 }
 
-
-void Cproject1View::StartEyedropperMode(CColorReplaceDlg* pCallerDlg)
+void Cproject1View::StartColorPickerTracking(CColorReplaceDlg* pDlg)
 {
-	m_bEyedropperActive = TRUE;
-	m_pEyedropperCallback = pCallerDlg;
+	m_pColorPickerDlg = pDlg;
+	s_pActiveColorPickerView = this;
+	s_hColorPickerHook = SetWindowsHookEx(WH_MOUSE_LL, ColorPickerHookProc, AfxGetInstanceHandle(), 0);
+}
 
-	s_pActiveEyedropperView = this;
-	s_hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseHookProc, AfxGetInstanceHandle(), 0);
+void Cproject1View::StopColorPickerTracking()
+{
+	if (s_hColorPickerHook)
+	{
+		UnhookWindowsHookEx(s_hColorPickerHook);
+		s_hColorPickerHook = NULL;
+	}
+	s_pActiveColorPickerView = nullptr;
+	m_pColorPickerDlg = nullptr;
+}
 
-	SetCursor(AfxGetApp()->LoadStandardCursor(IDC_CROSS));
+LRESULT CALLBACK Cproject1View::ColorPickerHookProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+	if (nCode >= 0 && s_pActiveColorPickerView != nullptr)
+	{
+		MSLLHOOKSTRUCT* pMouseStruct = (MSLLHOOKSTRUCT*)lParam;
+		CPoint screenPt(pMouseStruct->pt.x, pMouseStruct->pt.y);
+
+		if (wParam == WM_MOUSEMOVE)
+		{
+			s_pActiveColorPickerView->HandleColorPickerHover(screenPt);
+		}
+		else if (wParam == WM_LBUTTONDOWN)
+		{
+			BOOL bHandled = s_pActiveColorPickerView->HandleColorPickerClick(screenPt);
+			if (bHandled)
+				return 1; // swallow only clicks that actually landed on the canvas
+		}
+	}
+
+	return CallNextHookEx(NULL, nCode, wParam, lParam);
+}
+
+// Checks whether a screen point is currently over the (still-visible, non-modal-hidden) dialog,
+// since the dialog no longer hides itself and may visually overlap the canvas.
+BOOL Cproject1View::IsScreenPointOverDialog(CPoint screenPt)
+{
+	if (m_pColorPickerDlg && ::IsWindow(m_pColorPickerDlg->GetSafeHwnd()))
+	{
+		CRect dlgRect;
+		m_pColorPickerDlg->GetWindowRect(&dlgRect);
+		if (dlgRect.PtInRect(screenPt))
+			return TRUE;
+	}
+	return FALSE;
+}
+
+BOOL Cproject1View::GetPixelColorAtScreenPoint(CPoint screenPt, COLORREF& outColor)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_image.IsNull()) return FALSE;
+
+	CPoint clientPt = screenPt;
+	ScreenToClient(&clientPt);
+
+	CRect rectClient;
+	GetClientRect(&rectClient);
+	if (!rectClient.PtInRect(clientPt)) return FALSE;
+
+	int imgWidth = pDoc->m_image.GetWidth();
+	int imgHeight = pDoc->m_image.GetHeight();
+
+	int pixelX, pixelY;
+
+	if (m_bFitToWindow)
+	{
+		double destAspect = (double)rectClient.Width() / rectClient.Height();
+		double srcAspect = (double)imgWidth / imgHeight;
+		int drawWidth = rectClient.Width();
+		int drawHeight = rectClient.Height();
+		int startX = 0, startY = 0;
+
+		if (destAspect > srcAspect)
+		{
+			drawWidth = (int)(rectClient.Height() * srcAspect);
+			startX = (rectClient.Width() - drawWidth) / 2;
+		}
+		else
+		{
+			drawHeight = (int)(rectClient.Width() / srcAspect);
+			startY = (rectClient.Height() - drawHeight) / 2;
+		}
+
+		pixelX = (int)((clientPt.x - startX) * ((double)imgWidth / drawWidth));
+		pixelY = (int)((clientPt.y - startY) * ((double)imgHeight / drawHeight));
+	}
+	else
+	{
+		CPoint scrollPos = GetScrollPosition();
+		pixelX = clientPt.x + scrollPos.x;
+		pixelY = clientPt.y + scrollPos.y;
+	}
+
+	if (pixelX < 0 || pixelX >= imgWidth || pixelY < 0 || pixelY >= imgHeight)
+		return FALSE;
+
+	int bpp = pDoc->m_image.GetBPP() / 8;
+	int pitch = pDoc->m_image.GetPitch();
+	BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
+
+	BYTE* pPixel = pBits + (pixelY * pitch) + (pixelX * bpp);
+	outColor = RGB(pPixel[2], pPixel[1], pPixel[0]);
+	return TRUE;
+}
+
+void Cproject1View::HandleColorPickerHover(CPoint screenPt)
+{
+	if (IsScreenPointOverDialog(screenPt))
+		return; // over the dialog — let it manage its own cursor/hover normally
+
+	COLORREF color;
+	if (GetPixelColorAtScreenPoint(screenPt, color))
+	{
+		::SetCursor(AfxGetApp()->LoadStandardCursor(IDC_CROSS));
+		if (m_pColorPickerDlg)
+			m_pColorPickerDlg->OnHoverColorUpdate(color);
+	}
+}
+
+BOOL Cproject1View::HandleColorPickerClick(CPoint screenPt)
+{
+	if (IsScreenPointOverDialog(screenPt))
+		return FALSE; // not our click — let the dialog's own controls handle it normally
+
+	COLORREF color;
+	if (GetPixelColorAtScreenPoint(screenPt, color))
+	{
+		if (m_pColorPickerDlg)
+			m_pColorPickerDlg->OnEyedropperColorPicked(color);
+		return TRUE; // handled — swallow so it doesn't do anything else
+	}
+
+	return FALSE; // clicked inside the view but outside actual image bounds
 }
 
 void Cproject1View::OnLButtonDown(UINT nFlags, CPoint point)
@@ -7331,132 +7458,5 @@ void Cproject1View::OnLButtonDown(UINT nFlags, CPoint point)
 	CView::OnLButtonDown(nFlags, point);
 }
 
-void Cproject1View::CancelEyedropperMode()
-{
-	if (s_hMouseHook)
-	{
-		UnhookWindowsHookEx(s_hMouseHook);
-		s_hMouseHook = NULL;
-	}
-	s_pActiveEyedropperView = nullptr;
 
-	m_bEyedropperActive = FALSE;
-	m_pEyedropperCallback = nullptr;
-	SetCursor(AfxGetApp()->LoadStandardCursor(IDC_ARROW));
-}
-
-BOOL Cproject1View::OnSetCursor(CWnd* pWnd, UINT nHitTest, UINT message)
-{
-	if (m_bEyedropperActive)
-	{
-		SetCursor(AfxGetApp()->LoadStandardCursor(IDC_CROSS));
-		return TRUE;
-	}
-	return CView::OnSetCursor(pWnd, nHitTest, message);
-}
-
-
-LRESULT CALLBACK Cproject1View::MouseHookProc(int nCode, WPARAM wParam, LPARAM lParam)
-{
-	if (nCode >= 0 && wParam == WM_LBUTTONDOWN && s_pActiveEyedropperView != nullptr)
-	{
-		MSLLHOOKSTRUCT* pMouseStruct = (MSLLHOOKSTRUCT*)lParam;
-		CPoint screenPt(pMouseStruct->pt.x, pMouseStruct->pt.y);
-
-		Cproject1View* pView = s_pActiveEyedropperView;
-		pView->HandleEyedropperClick(screenPt);
-
-		return 1;   // swallow this click — don't let it reach any window at all
-	}
-
-	return CallNextHookEx(NULL, nCode, wParam, lParam);
-}
-
-void Cproject1View::HandleEyedropperClick(CPoint screenPt)
-{
-	// Uninstall the hook immediately — one click, then we're done
-	if (s_hMouseHook)
-	{
-		UnhookWindowsHookEx(s_hMouseHook);
-		s_hMouseHook = NULL;
-	}
-	s_pActiveEyedropperView = nullptr;
-
-	CPoint clientPt = screenPt;
-	ScreenToClient(&clientPt);
-
-	CRect rectClient;
-	GetClientRect(&rectClient);
-
-	// If the click landed outside our view entirely, just cancel cleanly
-	if (!rectClient.PtInRect(clientPt))
-	{
-		CancelEyedropperMode();
-		if (m_pEyedropperCallback)
-		{
-			m_pEyedropperCallback->ShowWindow(SW_SHOW);
-			m_pEyedropperCallback->SetForegroundWindow();
-		}
-		return;
-	}
-
-	Cproject1Doc* pDoc = GetDocument();
-	if (pDoc && !pDoc->m_image.IsNull())
-	{
-		int imgWidth = pDoc->m_image.GetWidth();
-		int imgHeight = pDoc->m_image.GetHeight();
-
-		int pixelX, pixelY;
-
-		if (m_bFitToWindow)
-		{
-			double destAspect = (double)rectClient.Width() / rectClient.Height();
-			double srcAspect = (double)imgWidth / imgHeight;
-			int drawWidth = rectClient.Width();
-			int drawHeight = rectClient.Height();
-			int startX = 0, startY = 0;
-
-			if (destAspect > srcAspect)
-			{
-				drawWidth = (int)(rectClient.Height() * srcAspect);
-				startX = (rectClient.Width() - drawWidth) / 2;
-			}
-			else
-			{
-				drawHeight = (int)(rectClient.Width() / srcAspect);
-				startY = (rectClient.Height() - drawHeight) / 2;
-			}
-
-			pixelX = (int)((clientPt.x - startX) * ((double)imgWidth / drawWidth));
-			pixelY = (int)((clientPt.y - startY) * ((double)imgHeight / drawHeight));
-		}
-		else
-		{
-			CPoint scrollPos = GetScrollPosition();
-			pixelX = clientPt.x + scrollPos.x;
-			pixelY = clientPt.y + scrollPos.y;
-		}
-
-		if (pixelX >= 0 && pixelX < imgWidth && pixelY >= 0 && pixelY < imgHeight)
-		{
-			int bpp = pDoc->m_image.GetBPP() / 8;
-			int pitch = pDoc->m_image.GetPitch();
-			BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
-
-			BYTE* pPixel = pBits + (pixelY * pitch) + (pixelX * bpp);
-			BYTE b = pPixel[0];
-			BYTE g = pPixel[1];
-			BYTE r = pPixel[2];
-
-			COLORREF sampledColor = RGB(r, g, b);
-
-			if (m_pEyedropperCallback)
-				m_pEyedropperCallback->OnEyedropperColorPicked(sampledColor);
-		}
-	}
-
-	m_bEyedropperActive = FALSE;
-	m_pEyedropperCallback = nullptr;
-	SetCursor(AfxGetApp()->LoadStandardCursor(IDC_ARROW));
-}
 

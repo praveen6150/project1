@@ -1,54 +1,48 @@
 #pragma once
-
 #include "afxdialogex.h"
-#include <afxcmn.h> 
+#include <afxcmn.h>
 
-class Cproject1View; // Clean forward declaration
+class Cproject1View;
 
 class CColorReplaceDlg : public CDialogEx
 {
 	DECLARE_DYNAMIC(CColorReplaceDlg)
 
 public:
-	// Constructors & Destructors
 	CColorReplaceDlg(CWnd* pParent = nullptr);
 	virtual ~CColorReplaceDlg();
 
-	// Dialog Data
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_DIALOG_COLORREPLACE };
 #endif
 
-	// Public Setup & Interface Methods
 	void SetTargetView(Cproject1View* pView);
-	void OnEyedropperColorPicked(COLORREF pickedColor);
 
-	// Public Member Variables (Accessible by outside classes)
+	// Called by the View's hook whenever the mouse hovers or clicks the canvas
+	void OnHoverColorUpdate(COLORREF color);
+	void OnEyedropperColorPicked(COLORREF color);
+
 	COLORREF m_targetColor;
 	COLORREF m_replaceColor;
-	int m_tolerance;   // 0 - 150
-	Cproject1View* m_pTargetView; // FIXED: Now fully public so SetTargetView and other callers work safely
+	int m_tolerance;
+	Cproject1View* m_pTargetView;
 
 protected:
-	// Overrides
 	virtual void DoDataExchange(CDataExchange* pDX);
 	virtual BOOL OnInitDialog();
 	virtual void OnOK();
 	virtual void OnCancel();
 	virtual void PostNcDestroy();
 
-	// Message Map Handlers
-	afx_msg void OnBnClickedButtonEyedropperTarget();
 	afx_msg void OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
-	afx_msg void OnBnClickedButtonTargetColor();
 	afx_msg void OnBnClickedButtonReplaceColor();
 
-	// Protected UI Controls
 	CSliderCtrl m_sliderTolerance;
 
-	// Internal Helpers
+	void UpdateTargetLabel();
+	void UpdateReplaceLabel();
 	void UpdateLive();
-	void UpdateButtonColors();
 
 	DECLARE_MESSAGE_MAP()
 };
+
