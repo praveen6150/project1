@@ -43,6 +43,7 @@
 #define IDD_DIALOG_COLORREPLACE         375
 #define IDC_SLIDER_EXPOSURE             377
 #define IDD_DIALOG_EXPOSURE             377
+#define IDD_DIALOG_LUV                  379
 #define IDC_EDIT_BRIGHTNESS             1007
 #define IDC_EDIT_CONTRAST               1008
 #define IDC_STATIC_BRIGHT_TEXT          1010
@@ -136,6 +137,7 @@
 #define IDC_SLIDER_VIBRANCE             1087
 #define IDC_SLIDER_TEMPERATURE          1087
 #define IDC_SLIDER_TOLERANCE            1087
+#define IDC_SLIDER_LSTAR_LUV            1087
 #define IDC_STATIC_BINARY_THRESHOLD_VALUE 1088
 #define IDC_SLIDER_LEVELS_WHITE         1088
 #define IDC_SLIDER_SIGMOID_MIDPOINT     1088
@@ -144,9 +146,11 @@
 #define IDC_SLIDER_QDPP_REPULSION       1088
 #define IDC_SLIDER_COLORIZE_SAT         1088
 #define IDC_SLIDER_TINT                 1088
+#define IDC_SLIDER_USTAR                1088
 #define IDC_SLIDER_LEVELS_GAMMA         1089
 #define IDC_SLIDER_BLACK                1089
 #define IDC_SLIDER_QDPP_ENTANGLE        1089
+#define IDC_SLIDER_VSTAR                1089
 #define IDC_STATIC_LEVELS_BLACK         1090
 #define IDC_SLIDER_YELLOW               1090
 #define IDC_SLIDER_QDPP_DOTSIZE         1090
@@ -304,13 +308,15 @@
 #define ID_POINTPROCESS_EXPOSURE        32897
 #define ID_COLORMODELTRANSFORMATION_AUTOWHITEBALANCE 32898
 #define ID_POINTPROCESS_AUTOWHITEBALANCE 32899
+#define ID_COLORMODELTRANSFORMATION_CIELUV 32900
+#define ID_POINTPROCESS_CIELUV          32901
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        379
-#define _APS_NEXT_COMMAND_VALUE         32900
+#define _APS_NEXT_RESOURCE_VALUE        381
+#define _APS_NEXT_COMMAND_VALUE         32902
 #define _APS_NEXT_CONTROL_VALUE         1129
 #define _APS_NEXT_SYMED_VALUE           310
 #endif

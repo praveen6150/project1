@@ -209,6 +209,8 @@ public:
 	afx_msg void ApplyLiveExposure(int exposureStops100);
 	afx_msg void OnPointprocessExposure();
 	afx_msg void OnPointprocessAutowhitebalance();
+	afx_msg void ApplyLiveLuv(int deltaL, int deltaU, int deltaV);
+	afx_msg void OnPointprocessCieluv();
 };
 
 #ifndef _DEBUG  // debug version in project1View.cpp

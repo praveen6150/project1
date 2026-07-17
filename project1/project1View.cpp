@@ -55,6 +55,7 @@
 #include "CWhiteBalanceDlg.h"
 #include "CColorReplaceDlg.h"
 #include "CExposureDlg.h"
+#include "CLuvDlg.h"
 
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
 
@@ -143,11 +144,52 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_POINTPROCESS_COLORREPLACE, &Cproject1View::OnPointprocessColorreplace)
 	ON_COMMAND(ID_POINTPROCESS_EXPOSURE, &Cproject1View::OnPointprocessExposure)
 	ON_COMMAND(ID_POINTPROCESS_AUTOWHITEBALANCE, &Cproject1View::OnPointprocessAutowhitebalance)
+	ON_COMMAND(ID_POINTPROCESS_CIELUV, &Cproject1View::OnPointprocessCieluv)
+
 END_MESSAGE_MAP()
 
 
 HHOOK Cproject1View::s_hColorPickerHook = NULL;
 Cproject1View* Cproject1View::s_pActiveColorPickerView = nullptr;
+
+static double g_srgbToLinearLUT[256];
+static bool g_lutInitialized = false;
+
+static void InitSrgbLUT()
+{
+	if (g_lutInitialized) return;
+	for (int i = 0; i < 256; i++)
+	{
+		double c = i / 255.0;
+		g_srgbToLinearLUT[i] = (c <= 0.04045) ? (c / 12.92) : pow((c + 0.055) / 1.055, 2.4);
+	}
+	g_lutInitialized = true;
+}
+
+static double LinearToSrgb(double c)
+{
+	double v = (c <= 0.0031308) ? (c * 12.92) : (1.055 * pow(c, 1.0 / 2.4) - 0.055);
+	v *= 255.0;
+	return (v < 0.0) ? 0.0 : (v > 255.0 ? 255.0 : v);
+}
+
+static const double Xn = 95.0489, Yn = 100.0, Zn = 108.8840;
+
+static double LabF(double t)
+{
+	const double delta = 6.0 / 29.0;
+	return (t > delta * delta * delta) ? cbrt(t) : (t / (3.0 * delta * delta) + 4.0 / 29.0);
+}
+
+static double LabFInv(double t)
+{
+	const double delta = 6.0 / 29.0;
+	return (t > delta) ? (t * t * t) : (3.0 * delta * delta * (t - 4.0 / 29.0));
+}
+
+static double un_prime = (4.0 * Xn) / (Xn + 15.0 * Yn + 3.0 * Zn);
+static double vn_prime = (9.0 * Yn) / (Xn + 15.0 * Yn + 3.0 * Zn);
+
 
 
 template<typename Func>
@@ -7634,6 +7676,135 @@ void Cproject1View::OnPointprocessAutowhitebalance()
 	}
 	else {
 		memcpy(pCommitDst, pCommitSrc, commitPitch * height);
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+
+void Cproject1View::ApplyLiveLuv(int deltaL, int deltaU, int deltaV)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_image.IsNull() || pDoc->m_imageOriginal.IsNull()) return;
+
+	InitSrgbLUT();
+
+	// Restore pristine original first
+	int pitch = pDoc->m_imageOriginal.GetPitch();
+	int height = pDoc->m_imageOriginal.GetHeight();
+	BYTE* pSrcBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
+	BYTE* pDstBits = (BYTE*)pDoc->m_image.GetBits();
+
+	if (pitch < 0) {
+		memcpy(pDstBits + (pitch * (height - 1)), pSrcBits + (pitch * (height - 1)), abs(pitch) * height);
+	}
+	else {
+		memcpy(pDstBits, pSrcBits, pitch * height);
+	}
+
+	int width = pDoc->m_image.GetWidth();
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp < 24) return;
+
+	int bytesPerPixel = bpp / 8;
+	int dstPitch = pDoc->m_image.GetPitch();
+	BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = pBits + (y * dstPitch);
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pPixel = pRow + (x * bytesPerPixel);
+
+			BYTE Bb = pPixel[0], Gb = pPixel[1], Rb = pPixel[2];
+
+			// --- RGB -> XYZ (using your existing LUT) ---
+			double rl = g_srgbToLinearLUT[Rb];
+			double gl = g_srgbToLinearLUT[Gb];
+			double bl = g_srgbToLinearLUT[Bb];
+
+			double X = rl * 0.4124564 + gl * 0.3575761 + bl * 0.1804375;
+			double Y = rl * 0.2126729 + gl * 0.7151522 + bl * 0.0721750;
+			double Z = rl * 0.0193339 + gl * 0.1191920 + bl * 0.9503041;
+
+			// --- XYZ -> LUV ---
+			double denom = X + 15.0 * Y + 3.0 * Z;
+			double u_prime = (denom > 1e-10) ? (4.0 * X) / denom : 0.0;
+			double v_prime = (denom > 1e-10) ? (9.0 * Y) / denom : 0.0;
+
+			double yr = Y * 100.0 / Yn;   // scale to 0-100 range, matching Xn/Yn/Zn convention
+			double L = LabF(yr / 100.0) * 116.0 - 16.0;
+			if (L < 0.0) L = 0.0;
+
+			double U = 13.0 * L * (u_prime - un_prime);
+			double V = 13.0 * L * (v_prime - vn_prime);
+
+			// --- Apply slider deltas ---
+			L += deltaL;
+			U += deltaU;
+			V += deltaV;
+
+			L = max(0.0, min(100.0, L));
+
+			// --- LUV -> XYZ ---
+			double Y2;
+			if (L > 8.0)
+				Y2 = Yn * pow((L + 16.0) / 116.0, 3.0);
+			else
+				Y2 = Yn * (L / 903.3);
+
+			double u2_prime = (L > 1e-6) ? (U / (13.0 * L) + un_prime) : un_prime;
+			double v2_prime = (L > 1e-6) ? (V / (13.0 * L) + vn_prime) : vn_prime;
+
+			double X2, Z2;
+			if (v2_prime > 1e-10)
+			{
+				X2 = Y2 * (9.0 * u2_prime) / (4.0 * v2_prime);
+				Z2 = Y2 * (12.0 - 3.0 * u2_prime - 20.0 * v2_prime) / (4.0 * v2_prime);
+			}
+			else
+			{
+				X2 = 0.0;
+				Z2 = 0.0;
+			}
+
+			// --- XYZ -> RGB ---
+			double rl2 = (X2 / 100.0) * 3.2404542 + (Y2 / 100.0) * -1.5371385 + (Z2 / 100.0) * -0.4985314;
+			double gl2 = (X2 / 100.0) * -0.9692660 + (Y2 / 100.0) * 1.8760108 + (Z2 / 100.0) * 0.0415560;
+			double bl2 = (X2 / 100.0) * 0.0556434 + (Y2 / 100.0) * -0.2040259 + (Z2 / 100.0) * 1.0572252;
+
+			pPixel[0] = (BYTE)(LinearToSrgb(bl2) + 0.5);
+			pPixel[1] = (BYTE)(LinearToSrgb(gl2) + 0.5);
+			pPixel[2] = (BYTE)(LinearToSrgb(rl2) + 0.5);
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+void Cproject1View::OnPointprocessCieluv()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_imageOriginal.IsNull() || pDoc->m_image.IsNull()) return;
+
+	CLuvDlg dlg;
+	dlg.SetTargetView(this);
+
+	if (dlg.DoModal() != IDOK)
+		return; // OnCancel already reverted m_image
+
+	int pitch = pDoc->m_image.GetPitch();
+	int height = pDoc->m_image.GetHeight();
+	BYTE* pSrcBits = (BYTE*)pDoc->m_image.GetBits();
+	BYTE* pDstBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
+
+	if (pitch < 0) {
+		memcpy(pDstBits + (pitch * (height - 1)), pSrcBits + (pitch * (height - 1)), abs(pitch) * height);
+	}
+	else {
+		memcpy(pDstBits, pSrcBits, pitch * height);
 	}
 
 	Invalidate(FALSE);

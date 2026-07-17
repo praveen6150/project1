@@ -153,6 +153,9 @@
     <ClInclude Include="CExposureDlg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="CLuvDlg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="project1.cpp">
@@ -282,6 +285,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CExposureDlg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CLuvDlg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
