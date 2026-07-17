@@ -69,6 +69,13 @@ protected:
 	void RotateImageArbitrary(CImage& img, double angleDegrees);
 	int ComputeOtsuThreshold(const std::vector<int>& histogram, int totalPixels);
 	afx_msg BOOL OnMouseWheel(UINT nFlags, short zDelta, CPoint pt);
+	afx_msg BOOL OnSetCursor(CWnd* pWnd, UINT nHitTest, UINT message);
+
+	static HHOOK s_hMouseHook;
+	static Cproject1View* s_pActiveEyedropperView;
+	static LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, LPARAM lParam);
+	void HandleEyedropperClick(CPoint screenPt);
+
 protected:
 	//afx_msg void OnColorsHsvadjustment();
 	DECLARE_MESSAGE_MAP()
@@ -194,7 +201,7 @@ public:
 	afx_msg void ApplyLiveColorReplace(COLORREF targetColor, COLORREF replaceColor, int tolerance);
 	afx_msg void OnPointprocessColorreplace();
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
-
+	void CancelEyedropperMode();
 
 };
 

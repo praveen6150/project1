@@ -135,12 +135,21 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_POINTPROCESS_QUANTUMDPP, &Cproject1View::OnPointprocessQuantumdpp)
 	ON_WM_MOUSEWHEEL()
 	ON_WM_LBUTTONDOWN()
+	ON_WM_SETCURSOR()
 	ON_COMMAND(ID_POINTPROCESS_COLORIZE, &Cproject1View::OnPointprocessColorize)
 	ON_COMMAND(ID_POINTPROCESS_VIBRANCE, &Cproject1View::OnPointprocessVibrance)
 	ON_COMMAND(ID_POINTPROCESS_WHITEBALANCE, &Cproject1View::OnPointprocessWhitebalance)
 	ON_COMMAND(ID_POINTPROCESS_AUTOLEVELS, &Cproject1View::OnPointprocessAutolevels)
 	ON_COMMAND(ID_POINTPROCESS_COLORREPLACE, &Cproject1View::OnPointprocessColorreplace)
 END_MESSAGE_MAP()
+
+
+HHOOK Cproject1View::s_hMouseHook = NULL;
+Cproject1View* Cproject1View::s_pActiveEyedropperView = nullptr;
+
+
+
+
 
 template<typename Func>
 void Cproject1View::ProcessPixels(Func pfnPixelOp)
@@ -7311,104 +7320,143 @@ void Cproject1View::StartEyedropperMode(CColorReplaceDlg* pCallerDlg)
 	m_bEyedropperActive = TRUE;
 	m_pEyedropperCallback = pCallerDlg;
 
-	// Crosshair cursor gives clear visual feedback that we're in "pick a pixel" mode
+	s_pActiveEyedropperView = this;
+	s_hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseHookProc, AfxGetInstanceHandle(), 0);
+
 	SetCursor(AfxGetApp()->LoadStandardCursor(IDC_CROSS));
 }
 
 void Cproject1View::OnLButtonDown(UINT nFlags, CPoint point)
 {
-	if (m_bEyedropperActive)
-	{
-		Cproject1Doc* pDoc = GetDocument();
-		if (pDoc && !pDoc->m_image.IsNull())
-		{
-			// Convert the click point (client coords) into logical/scroll coords
-			CPoint logicalPoint = point;
-			OnPrepareDC(nullptr); // no-op safeguard if not a CScrollView; harmless either way
-
-			// Since your OnDraw() may draw fit-to-window (scaled) or 1:1,
-			// we need to map the click back to actual image pixel coordinates.
-			CRect rectClient;
-			GetClientRect(&rectClient);
-
-			int imgWidth = pDoc->m_image.GetWidth();
-			int imgHeight = pDoc->m_image.GetHeight();
-
-			int pixelX, pixelY;
-
-			if (m_bFitToWindow)
-			{
-				double destAspect = (double)rectClient.Width() / rectClient.Height();
-				double srcAspect = (double)imgWidth / imgHeight;
-				int drawWidth = rectClient.Width();
-				int drawHeight = rectClient.Height();
-				int startX = 0, startY = 0;
-
-				if (destAspect > srcAspect)
-				{
-					drawWidth = (int)(rectClient.Height() * srcAspect);
-					startX = (rectClient.Width() - drawWidth) / 2;
-				}
-				else
-				{
-					drawHeight = (int)(rectClient.Width() / srcAspect);
-					startY = (rectClient.Height() - drawHeight) / 2;
-				}
-
-				pixelX = (int)((logicalPoint.x - startX) * ((double)imgWidth / drawWidth));
-				pixelY = (int)((logicalPoint.y - startY) * ((double)imgHeight / drawHeight));
-			}
-			else
-			{
-				// 1:1 scroll mode — client coords map directly to image pixels
-				pixelX = logicalPoint.x;
-				pixelY = logicalPoint.y;
-			}
-
-			// Bounds check
-			if (pixelX >= 0 && pixelX < imgWidth && pixelY >= 0 && pixelY < imgHeight)
-			{
-				int bpp = pDoc->m_image.GetBPP() / 8;
-				int pitch = pDoc->m_image.GetPitch();
-				BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
-
-				BYTE* pPixel = pBits + (pixelY * pitch) + (pixelX * bpp);
-				BYTE b = pPixel[0];
-				BYTE g = pPixel[1];
-				BYTE r = pPixel[2];
-
-				COLORREF sampledColor = RGB(r, g, b);
-
-				if (m_pEyedropperCallback)
-					m_pEyedropperCallback->OnEyedropperColorPicked(sampledColor);
-			}
-		}
-
-		m_bEyedropperActive = FALSE;
-		m_pEyedropperCallback = nullptr;
-		SetCursor(AfxGetApp()->LoadStandardCursor(IDC_ARROW)); // restore normal cursor
-	}
-
 	CView::OnLButtonDown(nFlags, point);
 }
 
-//void Cproject1View::RevertToOriginal()
-//{
-//	Cproject1Doc* pDoc = GetDocument();
-//	if (!pDoc || pDoc->m_image.IsNull() || pDoc->m_imageOriginal.IsNull()) return;
-//
-//	int pitch = pDoc->m_imageOriginal.GetPitch();
-//	int height = pDoc->m_imageOriginal.GetHeight();
-//	BYTE* pSrcBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
-//	BYTE* pDstBits = (BYTE*)pDoc->m_image.GetBits();
-//
-//	if (pitch < 0) {
-//		memcpy(pDstBits + (pitch * (height - 1)), pSrcBits + (pitch * (height - 1)), abs(pitch) * height);
-//	}
-//	else {
-//		memcpy(pDstBits, pSrcBits, pitch * height);
-//	}
-//
-//	Invalidate(FALSE);
-//	UpdateWindow();
-//}
+void Cproject1View::CancelEyedropperMode()
+{
+	if (s_hMouseHook)
+	{
+		UnhookWindowsHookEx(s_hMouseHook);
+		s_hMouseHook = NULL;
+	}
+	s_pActiveEyedropperView = nullptr;
+
+	m_bEyedropperActive = FALSE;
+	m_pEyedropperCallback = nullptr;
+	SetCursor(AfxGetApp()->LoadStandardCursor(IDC_ARROW));
+}
+
+BOOL Cproject1View::OnSetCursor(CWnd* pWnd, UINT nHitTest, UINT message)
+{
+	if (m_bEyedropperActive)
+	{
+		SetCursor(AfxGetApp()->LoadStandardCursor(IDC_CROSS));
+		return TRUE;
+	}
+	return CView::OnSetCursor(pWnd, nHitTest, message);
+}
+
+
+LRESULT CALLBACK Cproject1View::MouseHookProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+	if (nCode >= 0 && wParam == WM_LBUTTONDOWN && s_pActiveEyedropperView != nullptr)
+	{
+		MSLLHOOKSTRUCT* pMouseStruct = (MSLLHOOKSTRUCT*)lParam;
+		CPoint screenPt(pMouseStruct->pt.x, pMouseStruct->pt.y);
+
+		Cproject1View* pView = s_pActiveEyedropperView;
+		pView->HandleEyedropperClick(screenPt);
+
+		return 1;   // swallow this click — don't let it reach any window at all
+	}
+
+	return CallNextHookEx(NULL, nCode, wParam, lParam);
+}
+
+void Cproject1View::HandleEyedropperClick(CPoint screenPt)
+{
+	// Uninstall the hook immediately — one click, then we're done
+	if (s_hMouseHook)
+	{
+		UnhookWindowsHookEx(s_hMouseHook);
+		s_hMouseHook = NULL;
+	}
+	s_pActiveEyedropperView = nullptr;
+
+	CPoint clientPt = screenPt;
+	ScreenToClient(&clientPt);
+
+	CRect rectClient;
+	GetClientRect(&rectClient);
+
+	// If the click landed outside our view entirely, just cancel cleanly
+	if (!rectClient.PtInRect(clientPt))
+	{
+		CancelEyedropperMode();
+		if (m_pEyedropperCallback)
+		{
+			m_pEyedropperCallback->ShowWindow(SW_SHOW);
+			m_pEyedropperCallback->SetForegroundWindow();
+		}
+		return;
+	}
+
+	Cproject1Doc* pDoc = GetDocument();
+	if (pDoc && !pDoc->m_image.IsNull())
+	{
+		int imgWidth = pDoc->m_image.GetWidth();
+		int imgHeight = pDoc->m_image.GetHeight();
+
+		int pixelX, pixelY;
+
+		if (m_bFitToWindow)
+		{
+			double destAspect = (double)rectClient.Width() / rectClient.Height();
+			double srcAspect = (double)imgWidth / imgHeight;
+			int drawWidth = rectClient.Width();
+			int drawHeight = rectClient.Height();
+			int startX = 0, startY = 0;
+
+			if (destAspect > srcAspect)
+			{
+				drawWidth = (int)(rectClient.Height() * srcAspect);
+				startX = (rectClient.Width() - drawWidth) / 2;
+			}
+			else
+			{
+				drawHeight = (int)(rectClient.Width() / srcAspect);
+				startY = (rectClient.Height() - drawHeight) / 2;
+			}
+
+			pixelX = (int)((clientPt.x - startX) * ((double)imgWidth / drawWidth));
+			pixelY = (int)((clientPt.y - startY) * ((double)imgHeight / drawHeight));
+		}
+		else
+		{
+			CPoint scrollPos = GetScrollPosition();
+			pixelX = clientPt.x + scrollPos.x;
+			pixelY = clientPt.y + scrollPos.y;
+		}
+
+		if (pixelX >= 0 && pixelX < imgWidth && pixelY >= 0 && pixelY < imgHeight)
+		{
+			int bpp = pDoc->m_image.GetBPP() / 8;
+			int pitch = pDoc->m_image.GetPitch();
+			BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
+
+			BYTE* pPixel = pBits + (pixelY * pitch) + (pixelX * bpp);
+			BYTE b = pPixel[0];
+			BYTE g = pPixel[1];
+			BYTE r = pPixel[2];
+
+			COLORREF sampledColor = RGB(r, g, b);
+
+			if (m_pEyedropperCallback)
+				m_pEyedropperCallback->OnEyedropperColorPicked(sampledColor);
+		}
+	}
+
+	m_bEyedropperActive = FALSE;
+	m_pEyedropperCallback = nullptr;
+	SetCursor(AfxGetApp()->LoadStandardCursor(IDC_ARROW));
+}
+

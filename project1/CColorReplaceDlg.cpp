@@ -127,6 +127,18 @@ void CColorReplaceDlg::OnBnClickedButtonEyedropperTarget()
 	if (m_pTargetView != nullptr)
 	{
 		ShowWindow(SW_HIDE);
+
+		CWnd* pMainWnd = AfxGetMainWnd();
+		if (pMainWnd)
+		{
+			pMainWnd->SetForegroundWindow();
+			pMainWnd->BringWindowToTop();
+		}
+
+		CFrameWnd* pParentFrame = m_pTargetView->GetParentFrame();
+		if (pParentFrame)
+			pParentFrame->ActivateFrame();
+
 		m_pTargetView->StartEyedropperMode(this);
 	}
 }
@@ -134,8 +146,18 @@ void CColorReplaceDlg::OnBnClickedButtonEyedropperTarget()
 void CColorReplaceDlg::OnEyedropperColorPicked(COLORREF pickedColor)
 {
 	m_targetColor = pickedColor;
+
 	ShowWindow(SW_SHOW);
+	SetForegroundWindow();
+
 	UpdateButtonColors();
 	UpdateLive();
 }
 
+void CColorReplaceDlg::PostNcDestroy()
+{
+	if (m_pTargetView)
+		m_pTargetView->CancelEyedropperMode();
+
+	CDialogEx::PostNcDestroy();
+}

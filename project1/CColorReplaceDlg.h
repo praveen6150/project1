@@ -35,6 +35,7 @@ protected:
 	virtual BOOL OnInitDialog();
 	virtual void OnOK();
 	virtual void OnCancel();
+	virtual void PostNcDestroy();
 
 	// Message Map Handlers
 	afx_msg void OnBnClickedButtonEyedropperTarget();
