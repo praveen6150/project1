@@ -128,7 +128,7 @@ void CLiftGammaGainDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBa
 {
 	CSliderCtrl* pSlider = (CSliderCtrl*)pScrollBar;
 
-	if (pSlider == &m_sliderLiftR) { m_liftR = pSlider->GetPos();  UpdateLiftLabel(0); }
+         if (pSlider == &m_sliderLiftR) { m_liftR = pSlider->GetPos();  UpdateLiftLabel(0); }
 	else if (pSlider == &m_sliderLiftG) { m_liftG = pSlider->GetPos();  UpdateLiftLabel(1); }
 	else if (pSlider == &m_sliderLiftB) { m_liftB = pSlider->GetPos();  UpdateLiftLabel(2); }
 	else if (pSlider == &m_sliderGammaR) { m_gammaR = pSlider->GetPos(); UpdateGammaLabel(0); }
