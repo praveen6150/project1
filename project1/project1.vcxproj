@@ -223,6 +223,7 @@
     <ClInclude Include="CHsvDlg.h" />
     <ClInclude Include="CInverseLogTransformDlg.h" />
     <ClInclude Include="CLevelsAdjustmentDlg.h" />
+    <ClInclude Include="CLiftGammaGainDlg.h" />
     <ClInclude Include="CLogTransformDlg.h" />
     <ClInclude Include="CLuvDlg.h" />
     <ClInclude Include="COtsuThresholdDlg.h" />
@@ -272,6 +273,7 @@
     <ClCompile Include="CHsvDlg.cpp" />
     <ClCompile Include="CInverseLogTransformDlg.cpp" />
     <ClCompile Include="CLevelsAdjustmentDlg.cpp" />
+    <ClCompile Include="CLiftGammaGainDlg.cpp" />
     <ClCompile Include="CLogTransformDlg.cpp" />
     <ClCompile Include="CLuvDlg.cpp" />
     <ClCompile Include="COtsuThresholdDlg.cpp" />

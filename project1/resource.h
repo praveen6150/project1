@@ -2,7 +2,6 @@
 // Microsoft Visual C++ generated include file.
 // Used by project1.rc
 //
-
 #define IDD_ABOUTBOX                    100
 #define IDP_OLE_INIT_FAILED             101
 #define IDR_MAINFRAME                   128
@@ -45,6 +44,7 @@
 #define IDC_SLIDER_EXPOSURE             377
 #define IDD_DIALOG_EXPOSURE             377
 #define IDD_DIALOG_LUV                  379
+#define IDD_DIALOG_LIFTGAMMAGAIN        381
 #define IDC_EDIT_BRIGHTNESS             1007
 #define IDC_EDIT_CONTRAST               1008
 #define IDC_STATIC_BRIGHT_TEXT          1010
@@ -139,6 +139,7 @@
 #define IDC_SLIDER_TEMPERATURE          1087
 #define IDC_SLIDER_TOLERANCE            1087
 #define IDC_SLIDER_LSTAR_LUV            1087
+#define IDC_SLIDER_LIFT_R               1087
 #define IDC_STATIC_BINARY_THRESHOLD_VALUE 1088
 #define IDC_SLIDER_LEVELS_WHITE         1088
 #define IDC_SLIDER_SIGMOID_MIDPOINT     1088
@@ -148,18 +149,25 @@
 #define IDC_SLIDER_COLORIZE_SAT         1088
 #define IDC_SLIDER_TINT                 1088
 #define IDC_SLIDER_USTAR                1088
-#define IDC_SLIDER_LEVELS_GAMMA         1289
+#define IDC_SLIDER_LIFT_G               1088
 #define IDC_SLIDER_BLACK                1089
 #define IDC_SLIDER_QDPP_ENTANGLE        1089
 #define IDC_SLIDER_VSTAR                1089
+#define IDC_SLIDER_LIFT_B               1089
 #define IDC_STATIC_LEVELS_BLACK         1090
 #define IDC_SLIDER_YELLOW               1090
 #define IDC_SLIDER_QDPP_DOTSIZE         1090
+#define IDC_SLIDER_GAMMA_R              1090
 #define IDC_STATIC_LEVELS_WHITE         1091
+#define IDC_SLIDER_GAMMA_G              1091
 #define IDC_STATIC_LEVELS_GAMMA         1092
+#define IDC_SLIDER_GAMMA_B              1092
 #define IDC_STATIC_SIGMOID_GAIN         1093
+#define IDC_SLIDER_GAIN_R               1093
 #define IDC_STATIC_SIGMOID_MIDPOINT     1094
+#define IDC_SLIDER_GAIN_G               1094
 #define IDC_STATIC_SEPIA_INTENSITY      1095
+#define IDC_SLIDER_GAIN_B               1095
 #define IDC_STATIC_CURVE_AREA           1096
 #define IDC_RADIO_CHANNEL_RED           1097
 #define IDC_RADIO_CHANNEL_BLUE          1098
@@ -194,6 +202,16 @@
 #define IDC_STATIC_L_VAL                1129
 #define IDC_STATIC_U_VAL                1130
 #define IDC_STATIC_V_VAL                1131
+#define IDC_STATIC_LIFT_R               1132
+#define IDC_STATIC_LIFT_G               1133
+#define IDC_STATIC_LIFT_B               1134
+#define IDC_STATIC_GAMMA_R              1135
+#define IDC_STATIC_GAMMA_G              1136
+#define IDC_STATIC_GAMMA_B              1137
+#define IDC_STATIC_GAIN_R               1138
+#define IDC_STATIC_GAIN_G               1139
+#define IDC_STATIC_GAIN_B               1140
+#define IDC_SLIDER_LEVELS_GAMMA         1289
 #define ID_VIEW_FITTOWINDOW             32771
 #define ID_POINT_INVERTCOLORS           32773
 #define ID_Menu                         32778
@@ -314,14 +332,16 @@
 #define ID_POINTPROCESS_AUTOWHITEBALANCE 32899
 #define ID_COLORMODELTRANSFORMATION_CIELUV 32900
 #define ID_POINTPROCESS_CIELUV          32901
+#define ID_COLORMODELTRANSFORMATION_LIFT 32902
+#define ID_POINTPROCESS_LIFTGAMMAGAIN   32903
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        381
-#define _APS_NEXT_COMMAND_VALUE         32902
-#define _APS_NEXT_CONTROL_VALUE         1132
+#define _APS_NEXT_RESOURCE_VALUE        383
+#define _APS_NEXT_COMMAND_VALUE         32904
+#define _APS_NEXT_CONTROL_VALUE         1141
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

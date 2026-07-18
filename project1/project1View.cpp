@@ -56,6 +56,7 @@
 #include "CColorReplaceDlg.h"
 #include "CExposureDlg.h"
 #include "CLuvDlg.h"
+#include "CLiftGammaGainDlg.h"
 
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
 
@@ -146,6 +147,7 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_POINTPROCESS_AUTOWHITEBALANCE, &Cproject1View::OnPointprocessAutowhitebalance)
 	ON_COMMAND(ID_POINTPROCESS_CIELUV, &Cproject1View::OnPointprocessCieluv)
 
+	ON_COMMAND(ID_POINTPROCESS_LIFTGAMMAGAIN, &Cproject1View::OnPointprocessLiftgammagain)
 END_MESSAGE_MAP()
 
 
@@ -7790,6 +7792,110 @@ void Cproject1View::OnPointprocessCieluv()
 	if (!pDoc || pDoc->m_imageOriginal.IsNull() || pDoc->m_image.IsNull()) return;
 
 	CLuvDlg dlg;
+	dlg.SetTargetView(this);
+
+	if (dlg.DoModal() != IDOK)
+		return; // OnCancel already reverted m_image
+
+	int pitch = pDoc->m_image.GetPitch();
+	int height = pDoc->m_image.GetHeight();
+	BYTE* pSrcBits = (BYTE*)pDoc->m_image.GetBits();
+	BYTE* pDstBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
+
+	if (pitch < 0) {
+		memcpy(pDstBits + (pitch * (height - 1)), pSrcBits + (pitch * (height - 1)), abs(pitch) * height);
+	}
+	else {
+		memcpy(pDstBits, pSrcBits, pitch * height);
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+void Cproject1View::ApplyLiveLiftGammaGain(
+	int liftR100, int liftG100, int liftB100,
+	int gammaR100, int gammaG100, int gammaB100,
+	int gainR100, int gainG100, int gainB100)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_image.IsNull() || pDoc->m_imageOriginal.IsNull()) return;
+
+	// Restore pristine original first
+	int pitch = pDoc->m_imageOriginal.GetPitch();
+	int height = pDoc->m_imageOriginal.GetHeight();
+	BYTE* pSrcBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
+	BYTE* pDstBits = (BYTE*)pDoc->m_image.GetBits();
+
+	if (pitch < 0) {
+		memcpy(pDstBits + (pitch * (height - 1)), pSrcBits + (pitch * (height - 1)), abs(pitch) * height);
+	}
+	else {
+		memcpy(pDstBits, pSrcBits, pitch * height);
+	}
+
+	int width = pDoc->m_image.GetWidth();
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp < 24) return;
+
+	int bytesPerPixel = bpp / 8;
+	int dstPitch = pDoc->m_image.GetPitch();
+	BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
+
+	// Convert scaled slider integers into real values
+	double liftR = liftR100 / 100.0, liftG = liftG100 / 100.0, liftB = liftB100 / 100.0;
+	double gammaR = gammaR100 / 100.0, gammaG = gammaG100 / 100.0, gammaB = gammaB100 / 100.0;
+	double gainR = gainR100 / 100.0, gainG = gainG100 / 100.0, gainB = gainB100 / 100.0;
+
+	// Guard against zero/negative gamma (would blow up pow())
+	if (gammaR < 0.01) gammaR = 0.01;
+	if (gammaG < 0.01) gammaG = 0.01;
+	if (gammaB < 0.01) gammaB = 0.01;
+
+	// Precompute a 256-entry LUT per channel — same optimization as your Exposure/AutoWB filters
+	BYTE lutR[256], lutG[256], lutB[256];
+
+	auto buildLut = [](BYTE* lut, double lift, double gamma, double gain)
+		{
+			double invGamma = 1.0 / gamma;
+			for (int i = 0; i < 256; i++)
+			{
+				double v = i / 255.0;                  // normalize to 0-1
+				v = v * gain + lift;                    // apply gain (highlights) and lift (shadows)
+				if (v < 0.0) v = 0.0;                    // clamp before pow() to avoid NaN on negative base
+				v = pow(v, invGamma);                   // apply gamma (midtones)
+				v *= 255.0;
+				v = max(0.0, min(255.0, v));
+				lut[i] = (BYTE)(v + 0.5);
+			}
+		};
+
+	buildLut(lutR, liftR, gammaR, gainR);
+	buildLut(lutG, liftG, gammaG, gainG);
+	buildLut(lutB, liftB, gammaB, gainB);
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = pBits + (y * dstPitch);
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pPixel = pRow + (x * bytesPerPixel);
+			pPixel[0] = lutB[pPixel[0]];   // B
+			pPixel[1] = lutG[pPixel[1]];   // G
+			pPixel[2] = lutR[pPixel[2]];   // R
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+void Cproject1View::OnPointprocessLiftgammagain()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_imageOriginal.IsNull() || pDoc->m_image.IsNull()) return;
+
+	CLiftGammaGainDlg dlg;
 	dlg.SetTargetView(this);
 
 	if (dlg.DoModal() != IDOK)

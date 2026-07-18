@@ -211,6 +211,8 @@ public:
 	afx_msg void OnPointprocessAutowhitebalance();
 	afx_msg void ApplyLiveLuv(int deltaL, int deltaU, int deltaV);
 	afx_msg void OnPointprocessCieluv();
+	afx_msg void ApplyLiveLiftGammaGain(int liftR100, int liftG100, int liftB100, int gammaR100, int gammaG100, int gammaB100, int gainR100, int gainG100, int gainB100);
+	afx_msg void OnPointprocessLiftgammagain();
 };
 
 #ifndef _DEBUG  // debug version in project1View.cpp
