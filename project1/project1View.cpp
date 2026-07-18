@@ -57,6 +57,7 @@
 #include "CExposureDlg.h"
 #include "CLuvDlg.h"
 #include "CLiftGammaGainDlg.h"
+#include "CColorPopDlg.h"
 
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
 
@@ -148,11 +149,16 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 	ON_COMMAND(ID_POINTPROCESS_CIELUV, &Cproject1View::OnPointprocessCieluv)
 
 	ON_COMMAND(ID_POINTPROCESS_LIFTGAMMAGAIN, &Cproject1View::OnPointprocessLiftgammagain)
+	ON_COMMAND(ID_POINTPROCESS_COLORPOP, &Cproject1View::OnPointprocessColorpop)
 END_MESSAGE_MAP()
 
 
 HHOOK Cproject1View::s_hColorPickerHook = NULL;
 Cproject1View* Cproject1View::s_pActiveColorPickerView = nullptr;
+
+HHOOK Cproject1View::s_hColorPickerHook2 = NULL;
+Cproject1View* Cproject1View::s_pActiveColorPickerView2 = nullptr;
+
 
 static double g_srgbToLinearLUT[256];
 static bool g_lutInitialized = false;
@@ -7896,6 +7902,215 @@ void Cproject1View::OnPointprocessLiftgammagain()
 	if (!pDoc || pDoc->m_imageOriginal.IsNull() || pDoc->m_image.IsNull()) return;
 
 	CLiftGammaGainDlg dlg;
+	dlg.SetTargetView(this);
+
+	if (dlg.DoModal() != IDOK)
+		return; // OnCancel already reverted m_image
+
+	int pitch = pDoc->m_image.GetPitch();
+	int height = pDoc->m_image.GetHeight();
+	BYTE* pSrcBits = (BYTE*)pDoc->m_image.GetBits();
+	BYTE* pDstBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
+
+	if (pitch < 0) {
+		memcpy(pDstBits + (pitch * (height - 1)), pSrcBits + (pitch * (height - 1)), abs(pitch) * height);
+	}
+	else {
+		memcpy(pDstBits, pSrcBits, pitch * height);
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+
+void Cproject1View::StartColorPickerTracking2(CColorPopDlg* pDlg)
+{
+	m_pColorPopDlg = pDlg;
+	s_pActiveColorPickerView2 = this;
+	s_hColorPickerHook2 = SetWindowsHookEx(WH_MOUSE_LL, ColorPickerHookProc2, AfxGetInstanceHandle(), 0);
+}
+
+void Cproject1View::StopColorPickerTracking2()
+{
+	if (s_hColorPickerHook2)
+	{
+		UnhookWindowsHookEx(s_hColorPickerHook2);
+		s_hColorPickerHook2 = NULL;
+	}
+	s_pActiveColorPickerView2 = nullptr;
+	m_pColorPopDlg = nullptr;
+}
+
+LRESULT CALLBACK Cproject1View::ColorPickerHookProc2(int nCode, WPARAM wParam, LPARAM lParam)
+{
+	if (nCode >= 0 && s_pActiveColorPickerView2 != nullptr)
+	{
+		MSLLHOOKSTRUCT* pMouseStruct = (MSLLHOOKSTRUCT*)lParam;
+		CPoint screenPt(pMouseStruct->pt.x, pMouseStruct->pt.y);
+
+		if (wParam == WM_MOUSEMOVE)
+		{
+			s_pActiveColorPickerView2->HandleColorPickerHover2(screenPt);
+		}
+		else if (wParam == WM_LBUTTONDOWN)
+		{
+			BOOL bHandled = s_pActiveColorPickerView2->HandleColorPickerClick2(screenPt);
+			if (bHandled)
+				return 1;
+		}
+	}
+	return CallNextHookEx(NULL, nCode, wParam, lParam);
+}
+
+BOOL Cproject1View::IsScreenPointOverDialog2(CPoint screenPt)
+{
+	if (m_pColorPopDlg && ::IsWindow(m_pColorPopDlg->GetSafeHwnd()))
+	{
+		CRect dlgRect;
+		m_pColorPopDlg->GetWindowRect(&dlgRect);
+		if (dlgRect.PtInRect(screenPt))
+			return TRUE;
+	}
+	return FALSE;
+}
+
+void Cproject1View::HandleColorPickerHover2(CPoint screenPt)
+{
+	if (IsScreenPointOverDialog2(screenPt))
+		return;
+
+	COLORREF color;
+	if (GetPixelColorAtScreenPoint(screenPt, color))   // reused from your existing Color Replace code
+	{
+		::SetCursor(AfxGetApp()->LoadStandardCursor(IDC_CROSS));
+		if (m_pColorPopDlg)
+			m_pColorPopDlg->OnHoverColorUpdate(color);
+	}
+}
+
+BOOL Cproject1View::HandleColorPickerClick2(CPoint screenPt)
+{
+	if (IsScreenPointOverDialog2(screenPt))
+		return FALSE;
+
+	COLORREF color;
+	if (GetPixelColorAtScreenPoint(screenPt, color))
+	{
+		if (m_pColorPopDlg)
+			m_pColorPopDlg->OnEyedropperColorPicked(color);
+		return TRUE;
+	}
+	return FALSE;
+}
+
+void Cproject1View::ApplyLiveColorPop(COLORREF targetColor, int hueTolerance)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_image.IsNull() || pDoc->m_imageOriginal.IsNull()) return;
+
+	// Restore pristine original first
+	int pitch = pDoc->m_imageOriginal.GetPitch();
+	int height = pDoc->m_imageOriginal.GetHeight();
+	BYTE* pSrcBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
+	BYTE* pDstBits = (BYTE*)pDoc->m_image.GetBits();
+
+	if (pitch < 0) {
+		memcpy(pDstBits + (pitch * (height - 1)), pSrcBits + (pitch * (height - 1)), abs(pitch) * height);
+	}
+	else {
+		memcpy(pDstBits, pSrcBits, pitch * height);
+	}
+
+	int width = pDoc->m_image.GetWidth();
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp < 24) return;
+
+	int bytesPerPixel = bpp / 8;
+	int dstPitch = pDoc->m_image.GetPitch();
+	BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
+
+	// --- Compute target hue (0-360) from targetColor ---
+	int tr = GetRValue(targetColor), tg = GetGValue(targetColor), tb = GetBValue(targetColor);
+	double trf = tr / 255.0, tgf = tg / 255.0, tbf = tb / 255.0;
+
+	double tMax = max(trf, max(tgf, tbf));
+	double tMin = min(trf, min(tgf, tbf));
+	double tDelta = tMax - tMin;
+
+	double targetHue = 0.0;
+	if (tDelta > 0.0001)
+	{
+		if (tMax == trf)      targetHue = fmod(((tgf - tbf) / tDelta), 6.0);
+		else if (tMax == tgf) targetHue = ((tbf - trf) / tDelta) + 2.0;
+		else                  targetHue = ((trf - tgf) / tDelta) + 4.0;
+		targetHue *= 60.0;
+		if (targetHue < 0.0) targetHue += 360.0;
+	}
+	// If target color is itself gray/neutral (tDelta near 0), targetHue stays 0 — an edge case,
+	// but a reasonable fallback since there's no meaningful hue to isolate anyway.
+
+	double tol = (double)hueTolerance;
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = pBits + (y * dstPitch);
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pPixel = pRow + (x * bytesPerPixel);
+
+			double b = pPixel[0] / 255.0;
+			double g = pPixel[1] / 255.0;
+			double r = pPixel[2] / 255.0;
+
+			double maxC = max(r, max(g, b));
+			double minC = min(r, min(g, b));
+			double delta = maxC - minC;
+
+			double hue = 0.0;
+			if (delta > 0.0001)
+			{
+				if (maxC == r)      hue = fmod(((g - b) / delta), 6.0);
+				else if (maxC == g) hue = ((b - r) / delta) + 2.0;
+				else                hue = ((r - g) / delta) + 4.0;
+				hue *= 60.0;
+				if (hue < 0.0) hue += 360.0;
+			}
+
+			// --- Circular hue distance (wraparound-aware, e.g. 350 vs 10 = 20 apart, not 340) ---
+			double hueDist = fabs(hue - targetHue);
+			if (hueDist > 180.0) hueDist = 360.0 - hueDist;
+
+			// --- Grayscale luminance for this pixel (used when outside tolerance) ---
+			BYTE gray = (BYTE)(0.299 * pPixel[2] + 0.587 * pPixel[1] + 0.114 * pPixel[0] + 0.5);
+
+			if (hueDist <= tol)
+			{
+				// Within range — keep full color, pixel unchanged
+			}
+			else
+			{
+				// Outside range — soft blend toward grayscale near the edge for a smooth transition
+				double blendZone = 20.0; // degrees of soft falloff beyond the hard tolerance
+				double blendFactor = min(1.0, (hueDist - tol) / blendZone);
+
+				pPixel[0] = (BYTE)(pPixel[0] + (gray - pPixel[0]) * blendFactor);
+				pPixel[1] = (BYTE)(pPixel[1] + (gray - pPixel[1]) * blendFactor);
+				pPixel[2] = (BYTE)(pPixel[2] + (gray - pPixel[2]) * blendFactor);
+			}
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+void Cproject1View::OnPointprocessColorpop()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_imageOriginal.IsNull() || pDoc->m_image.IsNull()) return;
+
+	CColorPopDlg dlg;
 	dlg.SetTargetView(this);
 
 	if (dlg.DoModal() != IDOK)

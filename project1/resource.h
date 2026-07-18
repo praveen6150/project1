@@ -45,6 +45,7 @@
 #define IDD_DIALOG_EXPOSURE             377
 #define IDD_DIALOG_LUV                  379
 #define IDD_DIALOG_LIFTGAMMAGAIN        381
+#define IDD_DIALOG_COLORPOP             383
 #define IDC_EDIT_BRIGHTNESS             1007
 #define IDC_EDIT_CONTRAST               1008
 #define IDC_STATIC_BRIGHT_TEXT          1010
@@ -140,6 +141,7 @@
 #define IDC_SLIDER_TOLERANCE            1087
 #define IDC_SLIDER_LSTAR_LUV            1087
 #define IDC_SLIDER_LIFT_R               1087
+#define IDC_SLIDER_HUE_TOLERANCE        1087
 #define IDC_STATIC_BINARY_THRESHOLD_VALUE 1088
 #define IDC_SLIDER_LEVELS_WHITE         1088
 #define IDC_SLIDER_SIGMOID_MIDPOINT     1088
@@ -211,6 +213,9 @@
 #define IDC_STATIC_GAIN_R               1138
 #define IDC_STATIC_GAIN_G               1139
 #define IDC_STATIC_GAIN_B               1140
+#define IDC_STATIC_HOVER_COLOR_POP      1141
+#define IDC_STATIC_TARGET_COLOR_POP     1142
+#define IDC_STATIC_HUE_TOLERANCE_TEXT   1143
 #define IDC_SLIDER_LEVELS_GAMMA         1289
 #define ID_VIEW_FITTOWINDOW             32771
 #define ID_POINT_INVERTCOLORS           32773
@@ -334,14 +339,16 @@
 #define ID_POINTPROCESS_CIELUV          32901
 #define ID_COLORMODELTRANSFORMATION_LIFT 32902
 #define ID_POINTPROCESS_LIFTGAMMAGAIN   32903
+#define ID_SPECIAL_COLORPOP             32904
+#define ID_POINTPROCESS_COLORPOP        32905
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        383
-#define _APS_NEXT_COMMAND_VALUE         32904
-#define _APS_NEXT_CONTROL_VALUE         1141
+#define _APS_NEXT_RESOURCE_VALUE        385
+#define _APS_NEXT_COMMAND_VALUE         32906
+#define _APS_NEXT_CONTROL_VALUE         1144
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

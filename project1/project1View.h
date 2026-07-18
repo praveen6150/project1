@@ -10,7 +10,7 @@
 
 class CHistogramDlg;
 class CColorReplaceDlg;
-
+class CColorPopDlg;
 
 class Cproject1View : public CScrollView
 {
@@ -34,6 +34,9 @@ public:
 	void ApplyLiveHSV(int hDeg, int sSat, int vVal);
 	void ApplyLiveHSVPreview(int hDeg, int sSat, int vVal, CImage* pSmallImg);
 	// Operations
+	void StartColorPickerTracking2(CColorPopDlg* pDlg);
+	void StopColorPickerTracking2();
+
 public:
 
 	// Overrides
@@ -64,6 +67,18 @@ protected:
 	BOOL HandleColorPickerClick(CPoint screenPt);
 	BOOL GetPixelColorAtScreenPoint(CPoint screenPt, COLORREF& outColor);
 	BOOL IsScreenPointOverDialog(CPoint screenPt);
+
+	static HHOOK s_hColorPickerHook2;
+	static Cproject1View* s_pActiveColorPickerView2;
+	static LRESULT CALLBACK ColorPickerHookProc2(int nCode, WPARAM wParam, LPARAM lParam);
+
+	CColorPopDlg* m_pColorPopDlg = nullptr;
+
+	void HandleColorPickerHover2(CPoint screenPt);
+	BOOL HandleColorPickerClick2(CPoint screenPt);
+	BOOL IsScreenPointOverDialog2(CPoint screenPt);
+
+
 
 public:
 	virtual ~Cproject1View();
@@ -213,6 +228,9 @@ public:
 	afx_msg void OnPointprocessCieluv();
 	afx_msg void ApplyLiveLiftGammaGain(int liftR100, int liftG100, int liftB100, int gammaR100, int gammaG100, int gammaB100, int gainR100, int gainG100, int gainB100);
 	afx_msg void OnPointprocessLiftgammagain();
+	afx_msg void OnPointprocessColorpop();
+	afx_msg void ApplyLiveColorPop(COLORREF targetColor, int hueTolerance);
+
 };
 
 #ifndef _DEBUG  // debug version in project1View.cpp

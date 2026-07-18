@@ -206,6 +206,7 @@
     <ClInclude Include="CCmykDlg.h" />
     <ClInclude Include="CColorBalanceDlg.h" />
     <ClInclude Include="CColorizeDlg.h" />
+    <ClInclude Include="CColorPopDlg.h" />
     <ClInclude Include="CColorReplaceDlg.h" />
     <ClInclude Include="CContrastStretchDlg.h" />
     <ClInclude Include="CCurveControl.h" />
@@ -256,6 +257,7 @@
     <ClCompile Include="CCmykDlg.cpp" />
     <ClCompile Include="CColorBalanceDlg.cpp" />
     <ClCompile Include="CColorizeDlg.cpp" />
+    <ClCompile Include="CColorPopDlg.cpp" />
     <ClCompile Include="CColorReplaceDlg.cpp" />
     <ClCompile Include="CContrastStretchDlg.cpp" />
     <ClCompile Include="CCurveControl.cpp" />
