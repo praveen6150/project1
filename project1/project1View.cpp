@@ -1925,7 +1925,7 @@ void Cproject1View::OnNeighborhoodprocessingHighpassfilter()
 			// Safe clamping logic to prevent underflow or overflow
 			pDstPixel[0] = (BYTE)(sumB < 0 ? 0 : (sumB > 255 ? 255 : sumB));
 			pDstPixel[1] = (BYTE)(sumG < 0 ? 0 : (sumG > 255 ? 255 : sumG));
-			pDstPixel[2] = (BYTE)(sumR < 0 ? 0 : (sumB > 255 ? 255 : sumR));
+			pDstPixel[2] = (BYTE)(sumR < 0 ? 0 : (sumR > 255 ? 255 : sumR));
 		}
 	}
 
