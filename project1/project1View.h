@@ -229,8 +229,10 @@ public:
 	afx_msg void ApplyLiveLiftGammaGain(int liftR100, int liftG100, int liftB100, int gammaR100, int gammaG100, int gammaB100, int gainR100, int gainG100, int gainB100);
 	afx_msg void OnPointprocessLiftgammagain();
 	afx_msg void OnPointprocessColorpop();
+	afx_msg void ApplyLiveBleachBypass(int intensityPercent);
 	afx_msg void ApplyLiveColorPop(COLORREF targetColor, int hueTolerance);
 
+	afx_msg void OnPointprocessBleachbypass();
 };
 
 #ifndef _DEBUG  // debug version in project1View.cpp

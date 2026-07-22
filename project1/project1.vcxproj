@@ -201,6 +201,7 @@
   <ItemGroup>
     <ClInclude Include="CBinaryThresholdDlg.h" />
     <ClInclude Include="CBitPlaneDlg.h" />
+    <ClInclude Include="CBleachBypassDlg.h" />
     <ClInclude Include="CBrightnessContrastDlg.h" />
     <ClInclude Include="CChannelIsolationDlg.h" />
     <ClInclude Include="CCmykDlg.h" />
@@ -252,6 +253,7 @@
   <ItemGroup>
     <ClCompile Include="CBinaryThresholdDlg.cpp" />
     <ClCompile Include="CBitPlaneDlg.cpp" />
+    <ClCompile Include="CBleachBypassDlg.cpp" />
     <ClCompile Include="CBrightnessContrastDlg.cpp" />
     <ClCompile Include="CChannelIsolationDlg.cpp" />
     <ClCompile Include="CCmykDlg.cpp" />

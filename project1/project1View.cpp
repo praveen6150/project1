@@ -58,6 +58,7 @@
 #include "CLuvDlg.h"
 #include "CLiftGammaGainDlg.h"
 #include "CColorPopDlg.h"
+#include "CBleachBypassDlg.h"
 
 IMPLEMENT_DYNCREATE(Cproject1View, CScrollView)
 
@@ -150,6 +151,7 @@ BEGIN_MESSAGE_MAP(Cproject1View, CScrollView)
 
 	ON_COMMAND(ID_POINTPROCESS_LIFTGAMMAGAIN, &Cproject1View::OnPointprocessLiftgammagain)
 	ON_COMMAND(ID_POINTPROCESS_COLORPOP, &Cproject1View::OnPointprocessColorpop)
+	ON_COMMAND(ID_POINTPROCESS_BLEACHBYPASS, &Cproject1View::OnPointprocessBleachbypass)
 END_MESSAGE_MAP()
 
 
@@ -8111,6 +8113,110 @@ void Cproject1View::OnPointprocessColorpop()
 	if (!pDoc || pDoc->m_imageOriginal.IsNull() || pDoc->m_image.IsNull()) return;
 
 	CColorPopDlg dlg;
+	dlg.SetTargetView(this);
+
+	if (dlg.DoModal() != IDOK)
+		return; // OnCancel already reverted m_image
+
+	int pitch = pDoc->m_image.GetPitch();
+	int height = pDoc->m_image.GetHeight();
+	BYTE* pSrcBits = (BYTE*)pDoc->m_image.GetBits();
+	BYTE* pDstBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
+
+	if (pitch < 0) {
+		memcpy(pDstBits + (pitch * (height - 1)), pSrcBits + (pitch * (height - 1)), abs(pitch) * height);
+	}
+	else {
+		memcpy(pDstBits, pSrcBits, pitch * height);
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+
+void Cproject1View::ApplyLiveBleachBypass(int intensityPercent)
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_image.IsNull() || pDoc->m_imageOriginal.IsNull()) return;
+
+	// Restore pristine original first
+	int pitch = pDoc->m_imageOriginal.GetPitch();
+	int height = pDoc->m_imageOriginal.GetHeight();
+	BYTE* pSrcBits = (BYTE*)pDoc->m_imageOriginal.GetBits();
+	BYTE* pDstBits = (BYTE*)pDoc->m_image.GetBits();
+
+	if (pitch < 0) {
+		memcpy(pDstBits + (pitch * (height - 1)), pSrcBits + (pitch * (height - 1)), abs(pitch) * height);
+	}
+	else {
+		memcpy(pDstBits, pSrcBits, pitch * height);
+	}
+
+	int width = pDoc->m_image.GetWidth();
+	int bpp = pDoc->m_image.GetBPP();
+	if (bpp < 24) return;
+
+	int bytesPerPixel = bpp / 8;
+	int dstPitch = pDoc->m_image.GetPitch();
+	BYTE* pBits = (BYTE*)pDoc->m_image.GetBits();
+
+	double intensity = intensityPercent / 100.0;   // 0.0 to 1.0 overall blend strength
+
+	// --- Precompute an S-curve contrast LUT (sigmoid centered at 128) ---
+	// Higher "steepness" = more dramatic contrast boost in the bleach-bypass look
+	double steepness = 6.0;
+	BYTE contrastLut[256];
+	for (int i = 0; i < 256; i++)
+	{
+		double x = (i - 127.5) / 127.5;   // normalize to -1..1
+		double curved = 1.0 / (1.0 + exp(-steepness * x));   // sigmoid, 0..1
+		// Re-normalize sigmoid output so 0->0 and 255->255 exactly (sigmoid doesn't naturally hit 0/1)
+		double minCurve = 1.0 / (1.0 + exp(steepness));
+		double maxCurve = 1.0 / (1.0 + exp(-steepness));
+		double normalized = (curved - minCurve) / (maxCurve - minCurve);
+		contrastLut[i] = (BYTE)max(0.0, min(255.0, normalized * 255.0 + 0.5));
+	}
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = pBits + (y * dstPitch);
+		for (int x = 0; x < width; x++)
+		{
+			BYTE* pPixel = pRow + (x * bytesPerPixel);
+
+			BYTE origB = pPixel[0];
+			BYTE origG = pPixel[1];
+			BYTE origR = pPixel[2];
+
+			// --- Step 1: partial desaturation toward luminance ---
+			BYTE gray = (BYTE)(0.299 * origR + 0.587 * origG + 0.114 * origB + 0.5);
+
+			double desatAmount = 0.6;   // fixed partial-desaturation strength (bleach bypass never goes fully gray)
+			double b1 = origB + (gray - origB) * desatAmount;
+			double g1 = origG + (gray - origG) * desatAmount;
+			double r1 = origR + (gray - origR) * desatAmount;
+
+			// --- Step 2: apply S-curve contrast boost to each channel ---
+			BYTE b2 = contrastLut[(BYTE)(b1 + 0.5)];
+			BYTE g2 = contrastLut[(BYTE)(g1 + 0.5)];
+			BYTE r2 = contrastLut[(BYTE)(r1 + 0.5)];
+
+			// --- Step 3: blend the full effect against the original, by Intensity ---
+			pPixel[0] = (BYTE)(origB + (b2 - origB) * intensity);
+			pPixel[1] = (BYTE)(origG + (g2 - origG) * intensity);
+			pPixel[2] = (BYTE)(origR + (r2 - origR) * intensity);
+		}
+	}
+
+	Invalidate(FALSE);
+	UpdateWindow();
+}
+void Cproject1View::OnPointprocessBleachbypass()
+{
+	Cproject1Doc* pDoc = GetDocument();
+	if (!pDoc || pDoc->m_imageOriginal.IsNull() || pDoc->m_image.IsNull()) return;
+
+	CBleachBypassDlg dlg;
 	dlg.SetTargetView(this);
 
 	if (dlg.DoModal() != IDOK)
